@@ -1,5 +1,6 @@
 package com.corosus.zombie_players.entity;
 
+import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.entity.ai.EntityAIInteractChest;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
@@ -12,6 +13,9 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.pathfinding.PathNavigateGround;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
@@ -22,9 +26,19 @@ import javax.annotation.Nullable;
 public class EntityZombiePlayer extends EntityZombie implements IEntityAdditionalSpawnData {
 
     public static EntityZombiePlayer spawnInPlaceOfPlayer(EntityPlayerMP player) {
-        EntityZombiePlayer zombie = spawnInPlaceOfPlayer(player.world, player.posX, player.posY, player.posZ, player.getGameProfile());
+        boolean spawn = true;
+        EntityZombiePlayer zombie = null;
         if (player.getBedLocation() != null) {
-            zombie.setHomePosAndDistance(player.getBedLocation(), 16);
+            if (player.getBedLocation().getDistance(MathHelper.floor(player.posX), MathHelper.floor(player.posY), MathHelper.floor(player.posZ)) <
+                    ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn) {
+                spawn = false;
+            }
+        }
+        if (spawn) {
+            zombie = spawnInPlaceOfPlayer(player.world, player.posX, player.posY, player.posZ, player.getGameProfile());
+            if (player.getBedLocation() != null) {
+                zombie.setHomePosAndDistance(player.getBedLocation(), 16);
+            }
         }
         return zombie;
     }
@@ -45,7 +59,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public EntityZombiePlayer(World worldIn) {
         super(worldIn);
-        ((PathNavigateGround)this.getNavigator()).setBreakDoors(true);
+        ((PathNavigateGround) this.getNavigator()).setBreakDoors(ConfigZombiePlayers.opensDoors);
     }
 
     @Override
@@ -172,5 +186,10 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             ex.printStackTrace();
         }
         risingTime = additionalData.readInt();
+    }
+
+    @Override
+    public ITextComponent getDisplayName() {
+        return new TextComponentString("Zombie " + gameProfile.getName());
     }
 }

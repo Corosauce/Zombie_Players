@@ -1,7 +1,9 @@
 package com.corosus.zombie_players;
 
+import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.entity.EntityZombiePlayer;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -18,7 +20,9 @@ public class EventHandlerForge {
 		if (ent instanceof EntityPlayerMP) {
 			EntityPlayerMP player = (EntityPlayerMP) event.getEntityLiving();
 
-			EntityZombiePlayer.spawnInPlaceOfPlayer(player);
+			if (!ConfigZombiePlayers.requiresDeathByZombieToSpawnZombiePlayer || event.getSource().getImmediateSource() instanceof EntityZombie) {
+				EntityZombiePlayer.spawnInPlaceOfPlayer(player);
+			}
 		}
 	}
 }

@@ -99,6 +99,6 @@ public class CommonProxy implements IGuiHandler
     }
 
     public void addMapping(Class par0Class, String par1Str, int entityId, int distSync, int tickRateSync, boolean syncMotion) {
-        EntityRegistry.registerModEntity(new ResourceLocation(Zombie_Players.modID, par1Str), par0Class, par1Str, entityId, Zombie_Players.instance, distSync, tickRateSync, syncMotion);
+        EntityRegistry.registerModEntity(new ResourceLocation(Zombie_Players.modID, par1Str), par0Class, Zombie_Players.modID + ":" + par1Str, entityId, Zombie_Players.instance, distSync, tickRateSync, syncMotion);
     }
 }
