@@ -1,8 +1,9 @@
 package com.corosus.zombie_players.client.entity;
 
+import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.client.model.ModelZombiePlayer;
 import com.corosus.zombie_players.entity.EntityZombiePlayer;
-import com.corosus.zombie_players.util.UtilProfile;
+import CoroUtil.util.UtilProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelZombie;
@@ -128,6 +129,6 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
     }
 
     public static void dbg(String str) {
-        System.out.println(str);
+        CULog.dbg(str);
     }
 }

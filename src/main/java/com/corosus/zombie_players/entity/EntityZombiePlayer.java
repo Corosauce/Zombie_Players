@@ -1,11 +1,13 @@
 package com.corosus.zombie_players.entity;
 
+import com.corosus.zombie_players.entity.ai.EntityAIInteractChest;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.IEntityLivingData;
-import net.minecraft.entity.ai.EntityAIOpenDoor;
+import net.minecraft.entity.ai.*;
 import net.minecraft.entity.monster.EntityZombie;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.pathfinding.PathNavigateGround;
@@ -48,9 +50,19 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     @Override
     protected void initEntityAI() {
-        super.initEntityAI();
+        //super.initEntityAI();
 
+        this.tasks.addTask(0, new EntityAISwimming(this));
+        this.tasks.addTask(2, new EntityAIZombieAttack(this, 1.0D, false));
         this.tasks.addTask(4, new EntityAIOpenDoor(this, false));
+        this.tasks.addTask(5, new EntityAIMoveTowardsRestriction(this, 1.0D));
+
+        this.tasks.addTask(6, new EntityAIInteractChest(this, 1.0D, 20));
+
+        this.tasks.addTask(7, new EntityAIWanderAvoidWater(this, 1.0D));
+        this.tasks.addTask(8, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
+        this.tasks.addTask(8, new EntityAILookIdle(this));
+        this.applyEntityAI();
     }
 
     @Override
@@ -114,7 +126,6 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         this.setChild(false);
         this.enablePersistence();
-        //this.isImmuneToFire = true;
 
         return super.onInitialSpawn(difficulty, livingdata);
     }

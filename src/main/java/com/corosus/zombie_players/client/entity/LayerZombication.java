@@ -2,7 +2,7 @@ package com.corosus.zombie_players.client.entity;
 
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.entity.EntityZombiePlayer;
-import com.corosus.zombie_players.util.UtilProfile;
+import CoroUtil.util.UtilProfile;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.entity.layers.LayerRenderer;
 import net.minecraft.util.ResourceLocation;
