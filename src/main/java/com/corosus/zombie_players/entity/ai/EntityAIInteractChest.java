@@ -5,6 +5,7 @@ import javax.annotation.Nullable;
 import CoroUtil.forge.CULog;
 import CoroUtil.util.CoroUtilEntity;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
+import com.corosus.zombie_players.entity.EntityZombiePlayer;
 import com.corosus.zombie_players.util.UtilScanner;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.ai.EntityAIBase;
@@ -54,7 +55,8 @@ public class EntityAIInteractChest extends EntityAIBase
     @Override
     public boolean shouldExecute()
     {
-        if (!ConfigZombiePlayers.messUpChests) return false;
+        if (!ConfigZombiePlayers.messUpChests ||
+                (entity instanceof EntityZombiePlayer && !((EntityZombiePlayer)entity).spawnedFromPlayerDeath)) return false;
 
         if (!this.mustUpdate)
         {

@@ -36,6 +36,51 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
     }
 
     @Override
+    public void doRender(EntityZombiePlayer entity, double x, double y, double z, float entityYaw, float partialTicks) {
+
+        GlStateManager.pushMatrix();
+        float shadowMaxSize = 0.5F;
+        if (entity.risingTime < entity.risingTimeMax) {
+
+            //request data ASAP, load while still invis
+            UtilProfile.CachedPlayerData cache = getCachedPlayerData(entity);
+
+            float f = 1F - ((entity.risingTime + partialTicks) / (float) entity.risingTimeMax);
+            float shadowDelay = 20;
+            float fInv = ((entity.risingTime - shadowDelay + partialTicks) / (float) (entity.risingTimeMax - shadowDelay));
+
+            if (f > 1.0F) {
+                f = 1.0F;
+            }
+
+
+            GlStateManager.translate(0, -f * 0.7F, 0);
+            /*double yy = Math.sin(f * 20D) * 2D;
+            yy *= Math.sin(f);
+            GlStateManager.translate(0, yy, 0);*/
+            //GlStateManager.translate(0, -Math.sin(Math.cos((Math.PI) + f) * 20F) * 1F, 0);
+
+            if (entity.risingTime > shadowDelay) {
+                shadowSize = fInv * shadowMaxSize;
+            } else {
+                shadowSize = 0;
+            }
+
+        } else {
+            shadowSize = shadowMaxSize;
+        }
+
+        //be invisible if less than 0
+        if (entity.risingTime >= 0) {
+            super.doRender(entity, x, y, z, entityYaw, partialTicks);
+        }
+
+        GlStateManager.popMatrix();
+
+
+    }
+
+    @Override
     protected void renderModel(EntityZombiePlayer entitylivingbaseIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor)
     {
         boolean flag = this.isVisible(entitylivingbaseIn);
@@ -87,10 +132,31 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
                 f = 1.0F;
             }
 
-            //GlStateManager.translate(0, f * 2F, 0);
-            //GlStateManager.translate(0, -f * 3F, 0);
-            GlStateManager.rotate(-0F + (f * 90F)/* * this.getDeathMaxRotation(entityLiving)*/, 1.0F, 0.0F, 0.0F);
-            //GlStateManager.rotate(-0F + (f * 90F)/* * this.getDeathMaxRotation(entityLiving)*/, 1.0F, 0.0F, 0.0F);
+            /**
+             * angle = rise
+             * angle2 = get up from side
+             * angle3 = shake
+             */
+
+            double rotScale = Math.sin(f);
+            //use 180 to play with rate change scale lazily
+            double angle = (f * 90F) * rotScale;
+            double angle2 = 0;//(f * 90F) * rotScale;
+
+            double shakeRange = 30;
+            double shakeSpeed = 70;
+            double timeVal = ((entityLiving.world.getTotalWorldTime() + partialTicks) * shakeSpeed);
+            double angle3 = ((shakeRange/2) + Math.sin(Math.toRadians((timeVal % 360))) * shakeRange) * rotScale;
+
+            //GlStateManager.rotate((float) entityLiving.rotationYaw, 0.0F, 1.0F, 0.0F);
+
+            GlStateManager.rotate((float) angle, 1.0F, 0.0F, 0.0F);
+
+            GlStateManager.rotate((float) (angle2 + angle3), 0.0F, 1.0F, 0.0F);
+
+            /*double rotY = Math.sin(f) * 360 * 15F;
+            rotY *= Math.sin(f);
+            GlStateManager.rotate((float) rotY, 0.0F, 1.0F, 0.0F);*/
         }
 
         super.applyRotations(entityLiving, p_77043_2_, rotationYaw, partialTicks);
@@ -111,7 +177,7 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
                     if (model != null) {
                         data.setSlim(model.equals("slim"));
                     }
-                    RenderZombiePlayer.dbg(String.format("full data received for %s, is slim = " + data.isSlim(), name));
+                    RenderZombiePlayer.dbg(String.format(" full data received for %s, is slim = " + data.isSlim(), name));
                 } else {
                     //means thread lookup failed, could be bad username, no internet, etc
                     return null;

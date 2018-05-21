@@ -1,17 +1,22 @@
 package com.corosus.zombie_players.entity;
 
+import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.entity.ai.EntityAIInteractChest;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.IEntityLivingData;
 import net.minecraft.entity.ai.*;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.pathfinding.PathNavigateGround;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
@@ -39,6 +44,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             if (player.getBedLocation() != null) {
                 zombie.setHomePosAndDistance(player.getBedLocation(), 16);
             }
+            //doesnt do much during rising...
+            //zombie.setRotation(player.rotationYaw, player.rotationPitch);
         }
         return zombie;
     }
@@ -48,13 +55,17 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         zombie.setPosition(x, y, z);
         zombie.setGameProfile(profile);
         zombie.onInitialSpawn(world.getDifficultyForLocation(new BlockPos(x, y, z)), null);
+        zombie.enablePersistence();
+        zombie.spawnedFromPlayerDeath = true;
         world.spawnEntity(zombie);
         return zombie;
     }
 
+    public boolean spawnedFromPlayerDeath = false;
+
     public GameProfile gameProfile;
 
-    public int risingTime = 0;
+    public int risingTime = -20;
     public int risingTimeMax = 40;
 
     public EntityZombiePlayer(World worldIn) {
@@ -87,6 +98,18 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         if (risingTime < risingTimeMax) {
             this.setNoAI(true);
+            if (world.isRemote) {
+                IBlockState state = world.getBlockState(getPosition().down());
+                double speed = 0.2D;
+                for (int i = 0; i < 5; i++) {
+                    double x1 = world.rand.nextDouble() - world.rand.nextDouble();
+                    double z1 = world.rand.nextDouble() - world.rand.nextDouble();
+                    double x2 = (world.rand.nextDouble() - world.rand.nextDouble()) * speed;
+                    double y2 = (world.rand.nextDouble() - world.rand.nextDouble()) * speed;
+                    double z2 = (world.rand.nextDouble() - world.rand.nextDouble()) * speed;
+                    world.spawnParticle(EnumParticleTypes.BLOCK_DUST, posX + x1, posY, posZ + z1, x2, y2, z2, Block.getStateId(state));
+                }
+            }
         } else {
             this.setNoAI(false);
         }
@@ -112,34 +135,15 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         //temp
         if (gameProfile == null) {
             GameProfile profile;
-            String[] names = new String[] {"PhoenixfireLune", "Cojomax99", "aidancbrady", "AlgorithmX2",
-                    "amadornes"/*, "Amazig Jj"*/, "Aroma1997", "asie", "azanor", "Benimatic", "Blusunrize", "boni",
-                    "blood", "brandon3055", "Buuz135", "chicken_bones", "CofH", "Corosus", "CovertJaguar", "cpw",
-                    "CrazyPants", "dan200", "Darkhax", "DeflatedPickle", "Dinnerbone", "direwolf20", "Dockter",
-                    "DoodleFungus", "Drullkus", "Eladkay", "Eloraam", "Elucent", "Emoniph", "Etho", "EmosewaGamer",
-                    "FireBall1725", "Forecaster", "gabizou", "Glasspelican", "Glitchfiend", "greenphelm", "GWSheridan",
-                    "HellFirePVP", "HyperionNexus", "iChun", "InsomniaKitten", "JamiesWhiteShirt", "jaquadro", "Jared",
-                    "jeb", "kashike", "KingLemming", "LatvianModder", "LexManos", "LordSaad", "McJty", "mDiyo", "mezz",
-                    "modmuss50", "NillerUdenDild", "Pam", "player", "Poke", "ProfessorProspector", "ProfMobius", "raphy",
-                    "Reika", "rubensworks", "RWTema", "Sangar", "Shadowfacts", "Shadows_of_Fire", "SimeonRadivoev", "slowpoke",
-                    "sokratis12GR", "SpitefulFox", "srs_bsns", "Tamaized", "techbrew", "TehNut", "TheCodedOne", "TheRealp455w0rd",
-                    "tterrag", "Vazkii", "WayofTime", "wiiv", "wiresegal", "Xisuma", "Zidane"};
-            profile = new GameProfile(null, names[world.rand.nextInt(names.length-1)]);
-
-            //profile = new GameProfile(null, "Scratch");
-
-            //profile = new GameProfile(UUIDTypeAdapter.fromString("a6484c2f-cd05-460f-81d1-36e92d8f8f9e"), "Cojomax99");
-            //profile = new GameProfile(null, "Cojomax99");
-            //profile = new GameProfile(null, "PhoenixfireLune");
-            //profile = new GameProfile(UUIDTypeAdapter.fromString("ef29f2d6-14e1-4eda-9c53-d4eac41c0062"), "PhoenixfireLune");
-            //profile = new GameProfile(null, "chicken_bones");
-            //profile = new GameProfile(null, "CovertJaguar");
-            //profile = new GameProfile(UUIDTypeAdapter.fromString("e0bc7f7a-0d68-4e85-bbc4-8bd17e52e9e5"), "Corosus");
+            if (Zombie_Players.zombiePlayerNames != null && Zombie_Players.zombiePlayerNames.length > 0) {
+                profile = new GameProfile(null, Zombie_Players.zombiePlayerNames[world.rand.nextInt(Zombie_Players.zombiePlayerNames.length)]);
+            } else {
+                profile = new GameProfile(null, "Corosus");
+            }
             setGameProfile(profile);
         }
 
         this.setChild(false);
-        this.enablePersistence();
 
         return super.onInitialSpawn(difficulty, livingdata);
     }
@@ -153,6 +157,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
 
         risingTime = compound.getInteger("risingTime");
+        spawnedFromPlayerDeath = compound.getBoolean("spawnedFromPlayerDeath");
     }
 
     @Override
@@ -163,6 +168,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         }
 
         compound.setInteger("risingTime", risingTime);
+        compound.setBoolean("spawnedFromPlayerDeath", spawnedFromPlayerDeath);
 
         return super.writeToNBT(compound);
     }
