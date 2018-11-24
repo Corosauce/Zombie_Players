@@ -1,5 +1,6 @@
 package com.corosus.zombie_players.entity;
 
+import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.entity.ai.EntityAIInteractChest;
@@ -175,23 +176,25 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     @Override
     public void writeSpawnData(ByteBuf buffer) {
+        buffer.writeInt(risingTime);
         if (gameProfile != null) {
             ByteBufUtils.writeUTF8String(buffer, gameProfile.getName());
             ByteBufUtils.writeUTF8String(buffer, gameProfile.getId() != null ? gameProfile.getId().toString() : "");
         }
-        buffer.writeInt(risingTime);
     }
 
     @Override
     public void readSpawnData(ByteBuf additionalData) {
         try {
+            risingTime = additionalData.readInt();
             String playerName = ByteBufUtils.readUTF8String(additionalData);
             String playerUUID = ByteBufUtils.readUTF8String(additionalData);
             gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            //just log simple message and debug if needed
+            CULog.dbg("exception for EntityZombiePlayer.readSpawnData: " + ex.toString());
+            //ex.printStackTrace();
         }
-        risingTime = additionalData.readInt();
     }
 
     @Override
