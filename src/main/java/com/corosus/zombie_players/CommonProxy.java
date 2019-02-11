@@ -11,6 +11,7 @@ import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.IGuiHandler;
+import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 
@@ -24,7 +25,7 @@ public class CommonProxy implements IGuiHandler
 
     public void init(Zombie_Players pMod)
     {
-        addMapping(EntityZombiePlayer.class, "zombie_player", 0, 64, 3, true);
+
     }
 
     @Override
@@ -39,6 +40,11 @@ public class CommonProxy implements IGuiHandler
             int x, int y, int z)
     {
         return null;
+    }
+
+    @SubscribeEvent
+    public static void registerEntities(RegistryEvent.Register<EntityEntry> event) {
+        addMapping(EntityZombiePlayer.class, "zombie_player", 0, 64, 3, true);
     }
 
     @SubscribeEvent
@@ -98,7 +104,7 @@ public class CommonProxy implements IGuiHandler
         }
     }
 
-    public void addMapping(Class par0Class, String par1Str, int entityId, int distSync, int tickRateSync, boolean syncMotion) {
+    public static void addMapping(Class par0Class, String par1Str, int entityId, int distSync, int tickRateSync, boolean syncMotion) {
         EntityRegistry.registerModEntity(new ResourceLocation(Zombie_Players.modID, par1Str), par0Class, Zombie_Players.modID + ":" + par1Str, entityId, Zombie_Players.instance, distSync, tickRateSync, syncMotion);
     }
 }

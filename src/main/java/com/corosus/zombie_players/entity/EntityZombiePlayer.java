@@ -133,11 +133,10 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     @Override
     public IEntityLivingData onInitialSpawn(DifficultyInstance difficulty, @Nullable IEntityLivingData livingdata) {
 
-        //temp
         if (gameProfile == null) {
             GameProfile profile;
             if (Zombie_Players.zombiePlayerNames != null && Zombie_Players.zombiePlayerNames.length > 0) {
-                profile = new GameProfile(null, Zombie_Players.zombiePlayerNames[world.rand.nextInt(Zombie_Players.zombiePlayerNames.length)]);
+                profile = new GameProfile(null, Zombie_Players.zombiePlayerNames[world.rand.nextInt(Zombie_Players.zombiePlayerNames.length-1)]);
             } else {
                 profile = new GameProfile(null, "Corosus");
             }
