@@ -1,6 +1,7 @@
 package com.corosus.zombie_players;
 
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
+import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
 import com.corosus.zombie_players.entity.EntityZombiePlayer;
 import modconfig.ConfigMod;
 import net.minecraft.entity.EnumCreatureType;
@@ -32,6 +33,10 @@ public class Zombie_Players {
     public void preInit(FMLPreInitializationEvent event)
     {
         ConfigMod.addConfigFile(event, new ConfigZombiePlayers());
+        if (ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles) {
+            ConfigMod.addConfigFile(event, new ConfigZombiePlayersAdvanced());
+        }
+
     }
     
 	@Mod.EventHandler

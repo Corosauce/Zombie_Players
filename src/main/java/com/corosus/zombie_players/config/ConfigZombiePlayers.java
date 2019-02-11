@@ -14,6 +14,7 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	@ConfigComment("Finds visible chests near and randomly moves contents around, only zombie players spawned from actual players use this")
 	public static boolean messUpChests = true;
 	public static boolean opensDoors = true;
+	public static boolean pickupLoot = true;
 	@ConfigComment("To help prevent endless multiplication of zombies if you die near your own spawn point")
 	public static int distanceFromPlayerSpawnPointToPreventZombieSpawn = 16;
 
@@ -25,6 +26,9 @@ public class ConfigZombiePlayers implements IConfigCategory {
 
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Minecraft profile names to use when naturally spawning in zombie players")
 	public static String Spawning_playerNamesToUse = "PhoenixfireLune, Corosus, Cojomax99, Mr_okushama, tterrag, medsouz, SirTerryWrist, MrRube";
+
+	@ConfigComment("Use at own risk, will not support, requires game restart on change")
+	public static boolean enableAdvancedDeveloperConfigFiles = false;
 
 	@Override
 	public String getName() {
