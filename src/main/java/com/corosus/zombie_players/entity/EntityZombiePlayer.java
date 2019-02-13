@@ -4,10 +4,7 @@ import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
-import com.corosus.zombie_players.entity.ai.EntityAIInteractChest;
-import com.corosus.zombie_players.entity.ai.EntityAINearestAttackableTargetIfCalm;
-import com.corosus.zombie_players.entity.ai.EntityAIPlayZombiePlayer;
-import com.corosus.zombie_players.entity.ai.EntityAIZombieAttackWeaponReach;
+import com.corosus.zombie_players.entity.ai.*;
 import com.google.common.base.Predicate;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
@@ -16,6 +13,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.*;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.monster.*;
 import net.minecraft.entity.passive.EntityVillager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -111,15 +109,20 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         this.tasks.addTask(4, new EntityAIOpenDoor(this, false));
         this.tasks.addTask(5, new EntityAIMoveTowardsRestriction(this, 1.0D));
 
-        this.tasks.addTask(6, new EntityAIInteractChest(this, 1.0D, 20));
+        this.tasks.addTask(6, new EntityAIMoveToWantedNearbyItems(this, 1.15D));
 
-        this.tasks.addTask(7, new EntityAIPlayZombiePlayer(this, 1.15D));
+        this.tasks.addTask(7, new EntityAIMoveThroughVillage(this, 1.0D, false));
 
-        this.tasks.addTask(8, new EntityAIWanderAvoidWater(this, 1.0D));
-        this.tasks.addTask(9, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
-        this.tasks.addTask(9, new EntityAILookIdle(this));
+        this.tasks.addTask(8, new EntityAIInteractChest(this, 1.0D, 20));
+
+        this.tasks.addTask(9, new EntityAIPlayZombiePlayer(this, 1.15D));
+
+        this.tasks.addTask(10, new EntityAIWanderAvoidWater(this, 1.0D));
+        this.tasks.addTask(11, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
+        this.tasks.addTask(11, new EntityAIWatchClosest(this, EntityZombiePlayer.class, 8.0F));
+        this.tasks.addTask(11, new EntityAILookIdle(this));
         //this.applyEntityAI();
-        this.tasks.addTask(6, new EntityAIMoveThroughVillage(this, 1.0D, false));
+
         this.targetTasks.addTask(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
         this.targetTasks.addTask(2, new EntityAINearestAttackableTargetIfCalm(this, EntityPlayer.class, true, true));
         this.targetTasks.addTask(3, new EntityAINearestAttackableTarget(this, EntityVillager.class, false));
@@ -130,7 +133,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             public boolean apply(@Nullable EntityLiving p_apply_1_)
             {
                 return p_apply_1_ != null && IMob.VISIBLE_MOB_SELECTOR.apply(p_apply_1_) && !(p_apply_1_ instanceof EntityCreeper) && (!(p_apply_1_ instanceof EntityZombiePlayer) ||
-                        (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0));
+                        (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0 && p_apply_1_.getAttackTarget() != null));
             }
         }, false));
     }
@@ -141,20 +144,55 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         if (risingTime < risingTimeMax) risingTime++;
 
-        if (calmTime > 0) {
+        //calmTime = 20*93;
 
-            if (calmTime <= 20*30 && calmTime % (20*5) == 0) {
-                this.playSound(SoundEvents.ENTITY_ZOMBIE_VILLAGER_AMBIENT, getSoundVolume(), getSoundPitch());
+        if (!world.isRemote) {
+            if (calmTime > 0) {
+
+                if (calmTime <= 100 && calmTime % 10 == 0) {
+                    this.playSound(SoundEvents.ENTITY_ZOMBIE_INFECT, getSoundVolume(), getSoundPitch());
+                    ((WorldServer) this.world).spawnParticle(EnumParticleTypes.VILLAGER_ANGRY, true, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                            1, 0.3D, 0D, 0.3D, 1D, 0);
+                } else if (calmTime <= 20 * 90 && calmTime % (20 * 5) == 0) {
+                    this.playSound(SoundEvents.ENTITY_ZOMBIE_VILLAGER_AMBIENT, getSoundVolume(), getSoundPitch());
+                    ((WorldServer) this.world).spawnParticle(EnumParticleTypes.VILLAGER_ANGRY, true, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                            1, 0.3D, 0D, 0.3D, 1D, 0);
+                }
+
+                calmTime--;
+
+                if (calmTime == 0) {
+                    this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.23D);
+                }
             }
 
-            if (calmTime <= 100 && calmTime % 10 == 0) {
-                this.playSound(SoundEvents.ENTITY_ZOMBIE_INFECT, getSoundVolume(), getSoundPitch());
+            //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
+            if (calmTime < 20 * 90 || world.getTotalWorldTime() % 20 == 0) {
+                for (EntityItem entityitem : this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D))) {
+                    if (!entityitem.isDead && !entityitem.getItem().isEmpty() && !entityitem.cannotPickup() && isItemWeWant(entityitem.getItem())) {
+                        //this.updateEquipmentIfNeeded(entityitem);
+                        this.onItemPickup(entityitem, entityitem.getItem().getCount());
+                        entityitem.setDead();
+                        ateCalmingItem();
+
+                        //only have 1 ate a time to stagger hogging
+                        break;
+                    }
+                }
             }
 
-            calmTime--;
+            if (world.getTotalWorldTime() % 20 == 0 && isItemWeWant(getHeldItemMainhand())) {
+                for (int i = 0; i < getHeldItemMainhand().getCount(); i++) {
 
-            if (calmTime == 0) {
-                this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.23D);
+                    //only do effect sounds and visuals once
+                    if (i == 0) {
+                        ateCalmingItem(true);
+                    } else {
+                        ateCalmingItem(false);
+                    }
+
+                }
+                setHeldItem(EnumHand.MAIN_HAND, ItemStack.EMPTY);
             }
         }
 
@@ -177,6 +215,27 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         }
     }
 
+    public boolean isItemWeWant(ItemStack stack) {
+        return isRawMeat(stack);
+    }
+
+    public void ateCalmingItem() {
+        ateCalmingItem(true);
+    }
+
+    public void ateCalmingItem(boolean effect) {
+        this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
+        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
+        this.setAttackTarget(null);
+
+        this.heal(5);
+        if (effect) {
+            ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                    1, 0.3D, 0D, 0.3D, 1D, 0);
+            world.playSound((EntityPlayer) null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
+        }
+    }
+
     @Override
     public void setAttackTarget(@Nullable EntityLivingBase entitylivingbaseIn) {
         //cancel player targetting if calm
@@ -195,12 +254,13 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean isRawMeat(ItemStack stack) {
         Item item = stack.getItem();
-        return item == Items.PORKCHOP ||
+        return Zombie_Players.calmingItems.contains(item);
+        /*return item == Items.PORKCHOP ||
                 item == Items.FISH ||
                 item == Items.BEEF ||
                 item == Items.CHICKEN ||
                 item == Items.MUTTON ||
-                item == Items.RABBIT;
+                item == Items.RABBIT;*/
     }
 
     @Override
@@ -245,47 +305,47 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             } else if (itemstack.getItem() == Items.BED) {
                 if (calmTime > 0) {
                     if (this.hasHome()) {
-                        if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.range1) {
+                        if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.0D, this.posZ,
                                     particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), 32);
-                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.range2) {
+                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range2);
+                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range2) {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.5D, this.posZ,
                                     particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), 64);
-                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.range3) {
+                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range3);
+                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range3) {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                                     particleCount, 0.3D, 0D, 0.3D, 1D, 0);
                             this.setHomePosAndDistance(BlockPos.ORIGIN, -1);
                         } else {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                                     particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), 16);
+                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
                         }
 
                     } else {
                         ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                                 particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                        this.setHomePosAndDistance(getPosition(), 16);
+                        this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
                     }
                 }
 
 
             } else if (isRawMeat(itemstack)) {
                 itemUsed = true;
-                this.heal(5);
 
-                this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
-                this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
-                this.setAttackTarget(null);
+                ateCalmingItem();
 
-                particle = EnumParticleTypes.HEART;
+                particle = null;
             }
 
             if (itemUsed) {
-                ((WorldServer)this.world).spawnParticle(particle, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
-                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                world.playSound((EntityPlayer)null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
+                if (particle != null) {
+                    ((WorldServer) this.world).spawnParticle(particle, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                            particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                    world.playSound((EntityPlayer)null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
+                }
+
                 this.consumeItemFromStack(player, itemstack);
                 return true;
             }

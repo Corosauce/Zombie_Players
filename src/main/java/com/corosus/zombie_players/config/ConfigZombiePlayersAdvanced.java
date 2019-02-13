@@ -4,6 +4,7 @@ import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.Zombie_Players;
 import modconfig.ConfigComment;
 import modconfig.IConfigCategory;
+import net.minecraft.item.Item;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
@@ -12,9 +13,13 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	public static double healPerHit = 3;
 	public static double healPerKill = 10;
 
-	public static float range1 = 16;
-	public static float range2 = 32;
-	public static float range3 = 64;
+	public static float stayNearHome_range1 = 16;
+	public static float stayNearHome_range2 = 32;
+	public static float stayNearHome_range3 = 64;
+
+	public static double calmItemSearchRange = 6;
+
+	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:fish, minecraft:beef, minecraft:chicken, minecraft:rabbit";
 
 	@Override
 	public String getName() {
@@ -38,7 +43,18 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	@Override
 	public void hookUpdatedValues() {
+		Zombie_Players.calmingItems.clear();
 
+		String[] names = calmingItems.split(",");
+		for (int i = 0; i < names.length; i++) {
+			//remove spaces
+			names[i] = names[i].trim();
+			Item item = Item.getByNameOrId(names[i]);
+			if (item != null) {
+				CULog.dbg("adding " + item.getUnlocalizedName());
+				Zombie_Players.calmingItems.add(item);
+			}
+		}
 	}
 
 }

@@ -7,6 +7,7 @@ import modconfig.ConfigMod;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.init.Biomes;
+import net.minecraft.item.Item;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
@@ -14,6 +15,7 @@ import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Mod(modid = Zombie_Players.modID, name="Zombie Players", version=Zombie_Players.version, acceptableRemoteVersions="*", dependencies="required-after:coroutil@[1.12.1-1.2.11,)")
@@ -28,6 +30,8 @@ public class Zombie_Players {
     public static CommonProxy proxy;
 
     public static String[] zombiePlayerNames = new String[] { "" };
+
+    public static List<Item> calmingItems = new ArrayList<>();
     
 	@Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event)
