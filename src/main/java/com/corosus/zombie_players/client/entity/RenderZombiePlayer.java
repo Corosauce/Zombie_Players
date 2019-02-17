@@ -20,7 +20,7 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
         super(renderManagerIn, new ModelZombiePlayer(0.0F, false), 0.5F);
 
         this.getMainModel().isChild = false;
-        modelPlayerThin.isChild = false;
+        this.modelPlayerThin.isChild = false;
 
         this.addLayer(new LayerZombication(this));
 
@@ -39,6 +39,10 @@ public class RenderZombiePlayer extends RenderBiped<EntityZombiePlayer> {
     public void doRender(EntityZombiePlayer entity, double x, double y, double z, float entityYaw, float partialTicks) {
 
         GlStateManager.pushMatrix();
+
+        this.getMainModel().isChild = entity.isChild();
+        this.modelPlayerThin.isChild = entity.isChild();
+
         float shadowMaxSize = 0.5F;
         if (entity.risingTime < entity.risingTimeMax) {
 

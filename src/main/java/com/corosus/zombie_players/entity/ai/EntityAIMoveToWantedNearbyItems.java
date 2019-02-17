@@ -1,5 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
+import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
 import com.corosus.zombie_players.entity.EntityZombiePlayer;
 import net.minecraft.entity.ai.EntityAIBase;
@@ -28,8 +29,14 @@ public class EntityAIMoveToWantedNearbyItems extends EntityAIBase
      */
     public boolean shouldExecute()
     {
-        //let more hungry grab faster
-        if (zombiePlayer.getCalmTime() > 20 * 90 && this.zombiePlayer.getRNG().nextInt(10) != 0/* && zombiePlayer.world.getTotalWorldTime() % 20 != 0*/) {
+
+        if (ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && !zombiePlayer.isFoodNeedUrgent()) {
+            return false;
+        }
+
+        //let more hungry or hurt grab faster
+        if (!zombiePlayer.isFoodNeedUrgent() &&
+                this.zombiePlayer.getRNG().nextInt(10) != 0/* && zombiePlayer.world.getTotalWorldTime() % 20 != 0*/) {
             return false;
         } else if (this.zombiePlayer.getRNG().nextInt(5) != 0)
         {
@@ -74,6 +81,7 @@ public class EntityAIMoveToWantedNearbyItems extends EntityAIBase
     {
         if (this.target != null)
         {
+            zombiePlayer.setAttackTarget(null);
             zombiePlayer.getNavigator().tryMoveToEntityLiving(target, speed);
         }
 

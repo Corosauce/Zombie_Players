@@ -8,7 +8,7 @@ import net.minecraft.item.Item;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
-	public static int calmTimePerUse = 20*60*20;
+	public static int calmTimePerUse = 20*60*60;
 
 	public static double healPerHit = 3;
 	public static double healPerKill = 10;
@@ -17,7 +17,9 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	public static float stayNearHome_range2 = 32;
 	public static float stayNearHome_range3 = 64;
 
-	public static double calmItemSearchRange = 6;
+	public static double calmItemSearchRange = 12;
+
+	public static boolean onlySeekFoodIfNeeded = false;
 
 	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:fish, minecraft:beef, minecraft:chicken, minecraft:rabbit";
 

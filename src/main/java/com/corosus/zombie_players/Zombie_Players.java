@@ -32,13 +32,16 @@ public class Zombie_Players {
     public static String[] zombiePlayerNames = new String[] { "" };
 
     public static List<Item> calmingItems = new ArrayList<>();
+
+    public static ConfigZombiePlayersAdvanced configDev = new ConfigZombiePlayersAdvanced();
     
 	@Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event)
     {
         ConfigMod.addConfigFile(event, new ConfigZombiePlayers());
-        if (ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles) {
-            ConfigMod.addConfigFile(event, new ConfigZombiePlayersAdvanced());
+        //ensure the calmingItems list is populated
+        if (!ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles) {
+            configDev.hookUpdatedValues();
         }
 
     }

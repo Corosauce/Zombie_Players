@@ -36,20 +36,20 @@ public class EntityAINearestAttackableTargetIfCalm<T extends EntityLivingBase> e
     //invert is calm logic
     public boolean invert = false;
 
-    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean invert)
+    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean attackIfHostile)
     {
-        this(creature, classTarget, checkSight, false, invert);
+        this(creature, classTarget, checkSight, false, attackIfHostile);
     }
 
-    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean onlyNearby, boolean invert)
+    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean onlyNearby, boolean attackIfHostile)
     {
-        this(creature, classTarget, 10, checkSight, onlyNearby, (Predicate)null, invert);
+        this(creature, classTarget, 10, checkSight, onlyNearby, (Predicate)null, attackIfHostile);
     }
 
-    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, int chance, boolean checkSight, boolean onlyNearby, @Nullable final Predicate <? super T > targetSelector, boolean invert)
+    public EntityAINearestAttackableTargetIfCalm(EntityZombiePlayer creature, Class<T> classTarget, int chance, boolean checkSight, boolean onlyNearby, @Nullable final Predicate <? super T > targetSelector, boolean attackIfHostile)
     {
         super(creature, checkSight, onlyNearby);
-        this.invert = invert;
+        this.invert = attackIfHostile;
         this.entity = creature;
         this.targetClass = classTarget;
         this.targetChance = chance;
@@ -89,6 +89,10 @@ public class EntityAINearestAttackableTargetIfCalm<T extends EntityLivingBase> e
             if (entity.getCalmTime() == 0) {
                 return false;
             }
+        }
+
+        if (entity.getCalmTime() > 0 && entity.isHealthLow()) {
+            return false;
         }
 
         if (this.targetChance > 0 && this.taskOwner.getRNG().nextInt(this.targetChance) != 0)

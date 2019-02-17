@@ -17,7 +17,7 @@ public class EntityAIZombieAttackWeaponReach extends EntityAIZombieAttack {
     @Override
     protected double getAttackReachSqr(EntityLivingBase attackTarget) {
         if (zombie instanceof EntityZombiePlayer && !zombie.getHeldItemMainhand().isEmpty()) {
-            float itemReachBuff = 0.5F;
+            float itemReachBuff = 3F;
             return (double)(this.attacker.width * 2.0F * this.attacker.width * 2.0F + attackTarget.width + itemReachBuff);
         } else {
             return super.getAttackReachSqr(attackTarget);

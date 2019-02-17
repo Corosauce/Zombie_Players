@@ -6,6 +6,7 @@ import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
 import com.corosus.zombie_players.entity.ai.*;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Sets;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
@@ -104,29 +105,35 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     protected void initEntityAI() {
         //super.initEntityAI();
 
-        this.tasks.addTask(0, new EntityAISwimming(this));
-        this.tasks.addTask(2, new EntityAIZombieAttackWeaponReach(this, 1.0D, false));
-        this.tasks.addTask(4, new EntityAIOpenDoor(this, false));
-        this.tasks.addTask(5, new EntityAIMoveTowardsRestriction(this, 1.0D));
+        int taskID = 0;
 
-        this.tasks.addTask(6, new EntityAIMoveToWantedNearbyItems(this, 1.15D));
+        /**
+         * Theres a conflict between moving to wanted food and attacking player
+         * - move to food triggers a pathfind, but then something else stops it instantly, only when theres an enemy to go after though, hrm
+         */
 
-        this.tasks.addTask(7, new EntityAIMoveThroughVillage(this, 1.0D, false));
+        this.tasks.addTask(taskID++, new EntityAISwimming(this));
+        this.tasks.addTask(taskID++, new EntityAIZombieAttackWeaponReach(this, 1.0D, false));
+        this.tasks.addTask(taskID++, new EntityAIMoveToWantedNearbyItems(this, 1.15D));
+        this.tasks.addTask(taskID++, new EntityAIOpenDoor(this, false));
+        this.tasks.addTask(taskID++, new EntityAIMoveTowardsRestriction(this, 1.0D));
+        this.tasks.addTask(taskID++, new EntityAITemptZombie(this, 1.2D, false/*, Sets.newHashSet(Zombie_Players.calmingItems)*/));
 
-        this.tasks.addTask(8, new EntityAIInteractChest(this, 1.0D, 20));
+        //will this mess with calm state?
+        this.tasks.addTask(taskID++, new EntityAIMoveThroughVillage(this, 1.0D, false));
+        this.tasks.addTask(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
+        this.tasks.addTask(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
+        this.tasks.addTask(taskID++, new EntityAIWanderAvoidWater(this, 1.0D));
 
-        this.tasks.addTask(9, new EntityAIPlayZombiePlayer(this, 1.15D));
-
-        this.tasks.addTask(10, new EntityAIWanderAvoidWater(this, 1.0D));
-        this.tasks.addTask(11, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
-        this.tasks.addTask(11, new EntityAIWatchClosest(this, EntityZombiePlayer.class, 8.0F));
-        this.tasks.addTask(11, new EntityAILookIdle(this));
+        this.tasks.addTask(taskID, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
+        this.tasks.addTask(taskID, new EntityAIWatchClosest(this, EntityZombiePlayer.class, 8.0F));
+        this.tasks.addTask(taskID, new EntityAILookIdle(this));
         //this.applyEntityAI();
 
         this.targetTasks.addTask(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
         this.targetTasks.addTask(2, new EntityAINearestAttackableTargetIfCalm(this, EntityPlayer.class, true, true));
-        this.targetTasks.addTask(3, new EntityAINearestAttackableTarget(this, EntityVillager.class, false));
-        this.targetTasks.addTask(3, new EntityAINearestAttackableTarget(this, EntityIronGolem.class, true));
+        this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityVillager.class, false, true));
+        this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityIronGolem.class, true, true));
 
         this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityLiving.class, 0, true, false, new Predicate<EntityLiving>()
         {
@@ -141,6 +148,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     @Override
     public void onUpdate() {
         super.onUpdate();
+
+        //this.setHealth(10);
 
         if (risingTime < risingTimeMax) risingTime++;
 
@@ -157,6 +166,9 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                     this.playSound(SoundEvents.ENTITY_ZOMBIE_VILLAGER_AMBIENT, getSoundVolume(), getSoundPitch());
                     ((WorldServer) this.world).spawnParticle(EnumParticleTypes.VILLAGER_ANGRY, true, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                             1, 0.3D, 0D, 0.3D, 1D, 0);
+                } else if (isFoodNeedUrgent()) {
+                    ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                            1, 0.1D, 0D, 0.1D, 0D, 0);
                 }
 
                 calmTime--;
@@ -167,7 +179,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             }
 
             //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
-            if (calmTime < 20 * 90 || world.getTotalWorldTime() % 20 == 0) {
+            if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && world.getTotalWorldTime() % 20 == 0)) {
                 for (EntityItem entityitem : this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D))) {
                     if (!entityitem.isDead && !entityitem.getItem().isEmpty() && !entityitem.cannotPickup() && isItemWeWant(entityitem.getItem())) {
                         //this.updateEquipmentIfNeeded(entityitem);
@@ -226,7 +238,9 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     public void ateCalmingItem(boolean effect) {
         this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
         this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
+
         this.setAttackTarget(null);
+        this.setRevengeTarget(null);
 
         this.heal(5);
         if (effect) {
@@ -255,12 +269,6 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     public boolean isRawMeat(ItemStack stack) {
         Item item = stack.getItem();
         return Zombie_Players.calmingItems.contains(item);
-        /*return item == Items.PORKCHOP ||
-                item == Items.FISH ||
-                item == Items.BEEF ||
-                item == Items.CHICKEN ||
-                item == Items.MUTTON ||
-                item == Items.RABBIT;*/
     }
 
     @Override
@@ -400,6 +408,10 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             Arrays.fill(this.inventoryHandsDropChances, 1F);
         }
 
+        this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(16F);
+        this.getEntityAttribute(SPAWN_REINFORCEMENTS_CHANCE).setBaseValue(0);
+        this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(20);
+
         return data;
     }
 
@@ -519,5 +531,17 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         }
 
         return result;
+    }
+
+    public boolean isFoodNeedUrgent() {
+        if (getCalmTime() < 20 * 60 * 5 ||
+                isHealthLow()) {
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isHealthLow() {
+        return getHealth() <= getMaxHealth() - 5;
     }
 }

@@ -3,6 +3,7 @@ package com.corosus.zombie_players.config;
 import CoroUtil.forge.CULog;
 import com.corosus.zombie_players.Zombie_Players;
 import modconfig.ConfigComment;
+import modconfig.ConfigMod;
 import modconfig.IConfigCategory;
 
 import java.io.File;
@@ -59,6 +60,10 @@ public class ConfigZombiePlayers implements IConfigCategory {
 			names[i] = names[i].trim();
 		}
 		Zombie_Players.zombiePlayerNames = names;
+
+		if (ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles && !ConfigMod.instance.configLookup.containsKey(Zombie_Players.configDev.getRegistryName())) {
+			ConfigMod.addConfigFile(null, Zombie_Players.configDev);
+		}
 	}
 
 }
