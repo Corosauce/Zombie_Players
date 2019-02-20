@@ -92,13 +92,6 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     public EntityZombiePlayer(World worldIn) {
         super(worldIn);
         ((PathNavigateGround) this.getNavigator()).setBreakDoors(ConfigZombiePlayers.opensDoors);
-
-        //putting stuff here for backwards compat towards existing entities in world
-        this.setCanPickUpLoot(ConfigZombiePlayers.pickupLoot);
-        if (ConfigZombiePlayers.pickupLoot) {
-            Arrays.fill(this.inventoryArmorDropChances, 1F);
-            Arrays.fill(this.inventoryHandsDropChances, 1F);
-        }
     }
 
     @Override
@@ -307,6 +300,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                 itemUsed = true;
 
                 this.dropEquipment(true, 0);
+                setCanEquip(ConfigZombiePlayers.pickupLoot);
                 this.clearInventory();
 
                 particle = EnumParticleTypes.SPELL_WITCH;
@@ -402,11 +396,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         this.clearInventory();
         this.setChild(false);
-        this.setCanPickUpLoot(ConfigZombiePlayers.pickupLoot);
-        if (ConfigZombiePlayers.pickupLoot) {
-            Arrays.fill(this.inventoryArmorDropChances, 1F);
-            Arrays.fill(this.inventoryHandsDropChances, 1F);
-        }
+        setCanEquip(ConfigZombiePlayers.pickupLoot);
 
         this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(16F);
         this.getEntityAttribute(SPAWN_REINFORCEMENTS_CHANCE).setBaseValue(0);
@@ -419,6 +409,12 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         for (EntityEquipmentSlot entityequipmentslot : EntityEquipmentSlot.values()) {
             this.setItemStackToSlot(entityequipmentslot, ItemStack.EMPTY);
         }
+    }
+
+    public void setCanEquip(boolean pickupLoot) {
+        this.setCanPickUpLoot(pickupLoot);
+        Arrays.fill(this.inventoryArmorDropChances, pickupLoot ? 1F : 0F);
+        Arrays.fill(this.inventoryHandsDropChances, pickupLoot ? 1F : 0F);
     }
 
     @Override
