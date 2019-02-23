@@ -55,8 +55,11 @@ public class EntityAIInteractChest extends EntityAIBase
     @Override
     public boolean shouldExecute()
     {
+
         if (!ConfigZombiePlayers.messUpChests ||
                 (entity instanceof EntityZombiePlayer && !((EntityZombiePlayer)entity).spawnedFromPlayerDeath)) return false;
+
+        if (entity instanceof EntityZombiePlayer && ((EntityZombiePlayer)entity).getCalmTime() > 0) return false;
 
         if (!this.mustUpdate)
         {
