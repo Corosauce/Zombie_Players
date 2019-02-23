@@ -9,9 +9,11 @@ import net.minecraft.item.Item;
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static int calmTimePerUse = 20*60*60;
+	public static double healPerUse = 7;
 
 	public static double healPerHit = 3;
 	public static double healPerKill = 10;
+
 
 	public static float stayNearHome_range1 = 16;
 	public static float stayNearHome_range2 = 32;

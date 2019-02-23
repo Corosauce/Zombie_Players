@@ -146,6 +146,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         if (risingTime < risingTimeMax) risingTime++;
 
+        //calmTime = 120;
         //calmTime = 20*93;
 
         if (!world.isRemote) {
@@ -235,7 +236,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         this.setAttackTarget(null);
         this.setRevengeTarget(null);
 
-        this.heal(5);
+        this.heal((float) ConfigZombiePlayersAdvanced.healPerUse);
         if (effect) {
             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                     1, 0.3D, 0D, 0.3D, 1D, 0);
