@@ -28,7 +28,7 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Minecraft profile names to use when naturally spawning in zombie players")
 	public static String Spawning_playerNamesToUse = "PhoenixfireLune, Corosus, Cojomax99, Mr_okushama, tterrag, medsouz, SirTerryWrist, MrRube";
 
-	@ConfigComment("Use at own risk, will not support, requires game restart on change")
+	@ConfigComment("Use at own risk, will not support")
 	public static boolean enableAdvancedDeveloperConfigFiles = false;
 
 	@Override
