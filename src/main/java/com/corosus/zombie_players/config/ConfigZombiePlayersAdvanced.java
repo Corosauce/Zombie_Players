@@ -14,6 +14,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	public static double healPerHit = 3;
 	public static double healPerKill = 10;
 
+    public static double heal1HealthPerXTicks = 20*60*5;
 
 	public static float stayNearHome_range1 = 16;
 	public static float stayNearHome_range2 = 32;

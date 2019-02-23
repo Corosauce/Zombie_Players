@@ -178,6 +178,10 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                 }
             }
 
+            if (world.getTotalWorldTime() % ConfigZombiePlayersAdvanced.heal1HealthPerXTicks == 0) {
+                this.heal(1);
+            }
+
             //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
             if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && world.getTotalWorldTime() % 20 == 0)) {
                 for (EntityItem entityitem : this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D))) {
