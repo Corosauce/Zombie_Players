@@ -160,8 +160,14 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                     this.playSound(SoundEvents.ENTITY_ZOMBIE_VILLAGER_AMBIENT, getSoundVolume(), getSoundPitch());
                     ((WorldServer) this.world).spawnParticle(EnumParticleTypes.VILLAGER_ANGRY, true, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                             1, 0.3D, 0D, 0.3D, 1D, 0);
-                } else if (isFoodNeedUrgent()) {
+                }
+
+                if (isHealthLow()) {
                     ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                            1, 0.1D, 0D, 0.1D, 0D, 0);
+                }
+                if (isCalmTimeLow()) {
+                    ((WorldServer) this.world).spawnParticle(EnumParticleTypes.SPELL, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                             1, 0.1D, 0D, 0.1D, 0D, 0);
                 }
 
@@ -531,7 +537,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     }
 
     public boolean isFoodNeedUrgent() {
-        if (getCalmTime() < 20 * 60 * 5 ||
+        if (isCalmTimeLow() ||
                 isHealthLow()) {
             return true;
         }
@@ -540,5 +546,9 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean isHealthLow() {
         return getHealth() <= getMaxHealth() - 5;
+    }
+
+    public boolean isCalmTimeLow() {
+        return getCalmTime() < 20 * 60 * 5;
     }
 }
