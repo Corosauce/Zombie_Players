@@ -8,6 +8,7 @@ import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.init.Biomes;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
@@ -31,7 +32,7 @@ public class Zombie_Players {
 
     public static String[] zombiePlayerNames = new String[] { "" };
 
-    public static List<Item> calmingItems = new ArrayList<>();
+    public static List<Item> listCalmingItems = new ArrayList<>();
 
     public static ConfigZombiePlayersAdvanced configDev = new ConfigZombiePlayersAdvanced();
     

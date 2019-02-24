@@ -5,6 +5,11 @@ import com.corosus.zombie_players.Zombie_Players;
 import modconfig.ConfigComment;
 import modconfig.IConfigCategory;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
+import net.minecraftforge.oredict.OreDictionary;
+
+import java.util.ArrayList;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
@@ -22,6 +27,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static double calmItemSearchRange = 12;
 
+	@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
 	public static boolean onlySeekFoodIfNeeded = false;
 
 	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:fish, minecraft:beef, minecraft:chicken, minecraft:rabbit";
@@ -48,17 +54,37 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	@Override
 	public void hookUpdatedValues() {
-		Zombie_Players.calmingItems.clear();
+		Zombie_Players.listCalmingItems.clear();
 
-		String[] names = calmingItems.split(",");
-		for (int i = 0; i < names.length; i++) {
-			//remove spaces
-			names[i] = names[i].trim();
-			Item item = Item.getByNameOrId(names[i]);
-			if (item != null) {
-				CULog.dbg("adding " + item.getUnlocalizedName());
-				Zombie_Players.calmingItems.add(item);
+		try {
+			CULog.dbg("Processing calming items list for Zombie Players");
+			String[] names = calmingItems.split(",");
+			for (int i = 0; i < names.length; i++) {
+				//remove spaces
+				names[i] = names[i].trim();
+
+				if (names[i].contains("ore:")) {
+					String oreDictName = names[i].split(":")[1];
+					CULog.dbg("processing ore dictionary entry: " + oreDictName);
+					NonNullList<ItemStack> stacks = OreDictionary.getOres(oreDictName);
+					if (stacks.size() == 0) {
+						CULog.dbg("none found for ore dictionary name: " + oreDictName);
+					}
+					for (ItemStack stack : stacks) {
+						CULog.dbg("adding ore dict'd item: " + stack.getItem().getRegistryName());
+						Zombie_Players.listCalmingItems.add(stack.getItem());
+					}
+				} else {
+					Item item = Item.getByNameOrId(names[i]);
+					if (item != null) {
+						CULog.dbg("adding: " + item.getRegistryName());
+						Zombie_Players.listCalmingItems.add(item);
+					}
+				}
 			}
+		} catch (Exception ex) {
+			CULog.err("CRITICAL ERROR PARSING calmingItems CONFIG STRING FOR ZOMBIE PLAYERS");
+			ex.printStackTrace();
 		}
 	}
 

@@ -1,12 +1,9 @@
 package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.zombie_players.Zombie_Players;
-import com.google.common.collect.Sets;
-import java.util.Set;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.ai.EntityAIBase;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.pathfinding.PathNavigateGround;
 
@@ -85,7 +82,7 @@ public class EntityAITemptZombie extends EntityAIBase
 
     protected boolean isTempting(ItemStack stack)
     {
-        return Zombie_Players.calmingItems.contains(stack.getItem());//this.temptItem.contains(stack.getItem());
+        return Zombie_Players.listCalmingItems.contains(stack.getItem());//this.temptItem.contains(stack.getItem());
     }
 
     /**

@@ -6,7 +6,6 @@ import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
 import com.corosus.zombie_players.entity.ai.*;
 import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
@@ -272,7 +271,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean isRawMeat(ItemStack stack) {
         Item item = stack.getItem();
-        return Zombie_Players.calmingItems.contains(item);
+        return Zombie_Players.listCalmingItems.contains(item);
     }
 
     @Override
