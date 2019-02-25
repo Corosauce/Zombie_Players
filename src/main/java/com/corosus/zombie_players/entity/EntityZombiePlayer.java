@@ -392,12 +392,28 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     public IEntityLivingData onInitialSpawn(DifficultyInstance difficulty, @Nullable IEntityLivingData livingdata) {
 
         if (gameProfile == null) {
-            GameProfile profile;
-            if (Zombie_Players.zombiePlayerNames != null && Zombie_Players.zombiePlayerNames.length > 0) {
-                profile = new GameProfile(null, Zombie_Players.zombiePlayerNames[world.rand.nextInt(Zombie_Players.zombiePlayerNames.length-1)]);
-            } else {
+            GameProfile profile = null;
+            boolean fallback = false;
+
+            try {
+                if (Zombie_Players.zombiePlayerNames != null && Zombie_Players.zombiePlayerNames.length > 0) {
+                    String name = Zombie_Players.zombiePlayerNames[world.rand.nextInt(Zombie_Players.zombiePlayerNames.length)];
+                    if (name.equals("") || name.equals(" ")) {
+                        fallback = true;
+                    } else {
+                        profile = new GameProfile(null, name);
+                    }
+                } else {
+                    fallback = true;
+                }
+            } catch (Exception ex) {
+                fallback = true;
+            }
+
+            if (fallback) {
                 profile = new GameProfile(null, "Corosus");
             }
+
             setGameProfile(profile);
         }
 
