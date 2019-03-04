@@ -173,7 +173,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                 calmTime--;
 
                 if (calmTime == 0) {
-                    this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.23D);
+                    onBecomeHostile();
                 }
             }
 
@@ -230,6 +230,16 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         }
     }
 
+    public void onBecomeCalm() {
+        setCanEquip(ConfigZombiePlayers.pickupLootWhenCalm);
+        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
+    }
+
+    public void onBecomeHostile() {
+        setCanEquip(ConfigZombiePlayers.pickupLootWhenHostile);
+        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.23D);
+    }
+
     public boolean isItemWeWant(ItemStack stack) {
         return isRawMeat(stack);
     }
@@ -239,8 +249,12 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
     }
 
     public void ateCalmingItem(boolean effect) {
+
+        if (!isCalm()) {
+            onBecomeCalm();
+        }
+
         this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
-        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
 
         this.setAttackTarget(null);
         this.setRevengeTarget(null);
@@ -267,6 +281,10 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         } else {
             super.setAttackTarget(entitylivingbaseIn);
         }
+    }
+
+    public boolean isCalm() {
+        return calmTime > 0;
     }
 
     public boolean isRawMeat(ItemStack stack) {
@@ -310,12 +328,11 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                 itemUsed = true;
 
                 this.dropEquipment(true, 0);
-                setCanEquip(ConfigZombiePlayers.pickupLoot);
                 this.clearInventory();
 
                 particle = EnumParticleTypes.SPELL_WITCH;
             } else if (itemstack.getItem() == Items.BED) {
-                if (calmTime > 0) {
+                if (isCalm()) {
                     if (this.hasHome()) {
                         if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.0D, this.posZ,
@@ -422,7 +439,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         this.clearInventory();
         this.setChild(false);
-        setCanEquip(ConfigZombiePlayers.pickupLoot);
+        setCanEquip(ConfigZombiePlayers.pickupLootWhenHostile);
 
         this.getEntityAttribute(SharedMonsterAttributes.FOLLOW_RANGE).setBaseValue(16F);
         this.getEntityAttribute(SPAWN_REINFORCEMENTS_CHANCE).setBaseValue(0);
@@ -439,8 +456,12 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public void setCanEquip(boolean pickupLoot) {
         this.setCanPickUpLoot(pickupLoot);
-        Arrays.fill(this.inventoryArmorDropChances, pickupLoot ? 1F : 0F);
-        Arrays.fill(this.inventoryHandsDropChances, pickupLoot ? 1F : 0F);
+        /*Arrays.fill(this.inventoryArmorDropChances, pickupLoot ? 1F : 0F);
+        Arrays.fill(this.inventoryHandsDropChances, pickupLoot ? 1F : 0F);*/
+        //play it safe and make things always droppable
+        //case: picked up important item while loot on, died while loot off, item lost forever
+        Arrays.fill(this.inventoryArmorDropChances, 1F);
+        Arrays.fill(this.inventoryHandsDropChances, 1F);
     }
 
     @Override
