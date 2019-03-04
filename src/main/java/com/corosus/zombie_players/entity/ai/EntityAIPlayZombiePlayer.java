@@ -27,6 +27,7 @@ public class EntityAIPlayZombiePlayer extends EntityAIBase
      */
     public boolean shouldExecute()
     {
+        if (!zombiePlayer.isCalm() || zombiePlayer.shouldFollowOwner) return false;
         if (this.zombiePlayer.getRNG().nextInt(200) != 0)
         {
             return false;

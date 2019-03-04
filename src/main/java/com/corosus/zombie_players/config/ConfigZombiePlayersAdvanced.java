@@ -27,6 +27,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static double calmItemSearchRange = 12;
 
+	public static int chestSearchRange = 20;
+
 	@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
 	public static boolean onlySeekFoodIfNeeded = false;
 

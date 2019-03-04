@@ -1,6 +1,7 @@
 package com.corosus.zombie_players.entity;
 
 import CoroUtil.forge.CULog;
+import CoroUtil.util.CoroUtilEntity;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
@@ -18,17 +19,22 @@ import net.minecraft.entity.monster.*;
 import net.minecraft.entity.passive.EntityVillager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.inventory.EntityEquipmentSlot;
+import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.pathfinding.PathNavigateGround;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvent;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
@@ -40,9 +46,10 @@ import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import java.lang.ref.WeakReference;
+import java.util.*;
 
-public class EntityZombiePlayer extends EntityZombie implements IEntityAdditionalSpawnData {
+public class EntityZombiePlayer extends EntityZombie implements IEntityAdditionalSpawnData, IEntityOwnable {
 
     public static EntityZombiePlayer spawnInPlaceOfPlayer(EntityPlayerMP player) {
         boolean spawn = true;
@@ -56,7 +63,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         if (spawn) {
             zombie = spawnInPlaceOfPlayer(player.world, player.posX, player.posY, player.posZ, player.getGameProfile());
             if (player.getBedLocation() != null) {
-                zombie.setHomePosAndDistance(player.getBedLocation(), 16);
+                zombie.setHomePosAndDistance(player.getBedLocation(), 16, true);
             }
             //doesnt do much during rising...
             //zombie.setRotation(player.rotationYaw, player.rotationPitch);
@@ -75,6 +82,9 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         return zombie;
     }
 
+    public static Predicate<EntityLiving> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null && IMob.VISIBLE_MOB_SELECTOR.apply(p_apply_1_) && !(p_apply_1_ instanceof EntityCreeper) && (!(p_apply_1_ instanceof EntityZombiePlayer) ||
+            (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0 && p_apply_1_.getAttackTarget() != null));
+
     public boolean spawnedFromPlayerDeath = false;
 
     public GameProfile gameProfile;
@@ -84,9 +94,26 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean quiet = false;
 
+    public boolean canEatFromChests = false;
+
+    public boolean shouldFollowOwner = false;
+
     private boolean isPlaying;
 
     private int calmTime = 0;
+
+    public List<BlockPos> listPosChests = new ArrayList<>();
+    public static int MAX_CHESTS = 4;
+
+    public String ownerName = "";
+    public WeakReference<EntityPlayer> playerWeakReference = new WeakReference<>(null);
+
+    public boolean hasOpenedChest = false;
+    public BlockPos posChestUsing = null;
+    public int chestUseTime = 0;
+
+    public BlockPos homePositionBackup = null;
+    public int homeDistBackup = -1;
 
     public EntityZombiePlayer(World worldIn) {
         super(worldIn);
@@ -105,14 +132,18 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
          */
 
         this.tasks.addTask(taskID++, new EntityAISwimming(this));
+        this.tasks.addTask(taskID++, new EntityAIAvoidEntityOnLowHealth(this, EntityLivingBase.class, ENEMY_PREDICATE,
+                16.0F, 1.4D, 1.4D, 10F));
+        this.tasks.addTask(taskID++, new EntityAIEatToHeal(this));
         this.tasks.addTask(taskID++, new EntityAIZombieAttackWeaponReach(this, 1.0D, false));
         this.tasks.addTask(taskID++, new EntityAIMoveToWantedNearbyItems(this, 1.15D));
         this.tasks.addTask(taskID++, new EntityAIOpenDoor(this, false));
-        this.tasks.addTask(taskID++, new EntityAIMoveTowardsRestriction(this, 1.0D));
+        this.tasks.addTask(taskID++, new EntityAIFollowOwnerZombie(this, 1.2D, 10.0F, 2.0F));
+        this.tasks.addTask(taskID++, new EntityAIMoveTowardsRestrictionZombie(this, 1.0D) {});
         this.tasks.addTask(taskID++, new EntityAITemptZombie(this, 1.2D, false/*, Sets.newHashSet(Zombie_Players.calmingItems)*/));
 
         //will this mess with calm state?
-        this.tasks.addTask(taskID++, new EntityAIMoveThroughVillage(this, 1.0D, false));
+        //this.tasks.addTask(taskID++, new EntityAIMoveThroughVillage(this, 1.0D, false));
         this.tasks.addTask(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
         this.tasks.addTask(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
         this.tasks.addTask(taskID++, new EntityAIWanderAvoidWater(this, 1.0D));
@@ -127,14 +158,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityVillager.class, false, true));
         this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityIronGolem.class, true, true));
 
-        this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityLiving.class, 0, true, false, new Predicate<EntityLiving>()
-        {
-            public boolean apply(@Nullable EntityLiving p_apply_1_)
-            {
-                return p_apply_1_ != null && IMob.VISIBLE_MOB_SELECTOR.apply(p_apply_1_) && !(p_apply_1_ instanceof EntityCreeper) && (!(p_apply_1_ instanceof EntityZombiePlayer) ||
-                        (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0 && p_apply_1_.getAttackTarget() != null));
-            }
-        }, false));
+        this.targetTasks.addTask(3, new EntityAINearestAttackableTargetIfCalm(this, EntityLiving.class, 0, true, false, ENEMY_PREDICATE, false));
     }
 
     @Override
@@ -150,6 +174,15 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         if (!world.isRemote) {
             if (calmTime > 0) {
+
+                if (chestUseTime > 0) {
+                    chestUseTime--;
+                    if (chestUseTime == 0) {
+                        if (posChestUsing != null) {
+                            closeChest(posChestUsing);
+                        }
+                    }
+                }
 
                 if (calmTime <= 100 && calmTime % 10 == 0) {
                     this.playSound(SoundEvents.ENTITY_ZOMBIE_INFECT, getSoundVolume(), getSoundPitch());
@@ -230,14 +263,25 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         }
     }
 
+    @Override
+    protected void updateAITasks() {
+        super.updateAITasks();
+
+        if (isCalm() && isCanEatFromChests()) {
+            tickScanForChests();
+        }
+    }
+
     public void onBecomeCalm() {
         setCanEquip(ConfigZombiePlayers.pickupLootWhenCalm);
         this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.28D);
+        this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(1F);
     }
 
     public void onBecomeHostile() {
         setCanEquip(ConfigZombiePlayers.pickupLootWhenHostile);
         this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.23D);
+        this.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE).setBaseValue(0F);
     }
 
     public boolean isItemWeWant(ItemStack stack) {
@@ -252,6 +296,13 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         if (!isCalm()) {
             onBecomeCalm();
+        }
+
+        if (!hasOwner()) {
+            EntityPlayer player = world.getClosestPlayerToEntity(this, 16);
+            if (player != null) {
+                setOwnerName(player.getName());
+            }
         }
 
         this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
@@ -312,19 +363,24 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
             boolean itemUsed = false;
             int particleCount = 5;
-            EnumParticleTypes particle = EnumParticleTypes.HEART;
+            EnumParticleTypes particle = null;
 
-            if (itemstack.getItem() == Items.APPLE) {
+            if (isCalm() && itemstack.getItem() == Items.APPLE) {
                 itemUsed = true;
                 quiet = !quiet;
 
                 particle = EnumParticleTypes.NOTE;
-            } else if (itemstack.getItem() == Items.GLASS_BOTTLE) {
+            } else if (isCalm() && itemstack.getItem() == Items.GLASS_BOTTLE) {
                 itemUsed = true;
                 this.setChild(!this.isChild());
 
                 particle = EnumParticleTypes.SPELL_MOB;
-            } else if (itemstack.getItem() == Items.ROTTEN_FLESH) {
+            } else if (isCalm() && itemstack.getItem() == Item.getItemFromBlock(Blocks.CHEST)) {
+                //itemUsed = true;
+                this.setCanEatFromChests(!this.canEatFromChests);
+
+                particle = this.canEatFromChests ? EnumParticleTypes.HEART : EnumParticleTypes.SPELL_MOB;
+            } else if (isCalm() && itemstack.getItem() == Items.ROTTEN_FLESH) {
                 itemUsed = true;
 
                 this.dropEquipment(true, 0);
@@ -333,47 +389,74 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                 particle = EnumParticleTypes.SPELL_WITCH;
             } else if (itemstack.getItem() == Items.BED) {
                 if (isCalm()) {
-                    if (this.hasHome()) {
-                        if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
-                            ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.0D, this.posZ,
-                                    particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range2);
-                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range2) {
-                            ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.5D, this.posZ,
-                                    particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range3);
-                        } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range3) {
-                            ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
-                                    particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(BlockPos.ORIGIN, -1);
+                    particle = null;
+                    if (this.getLeashed()) {
+                        ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                                particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                        player.sendMessage(new TextComponentString("Can't set home while leashed"));
+                    } else {
+                        if (this.hasHome()) {
+                            if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
+                                ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.0D, this.posZ,
+                                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                                this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range2, true);
+                                player.sendMessage(new TextComponentString("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range2));
+                            } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range2) {
+                                ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 1.5D, this.posZ,
+                                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                                this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range3, true);
+                                player.sendMessage(new TextComponentString("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range3));
+                            } else if (this.getMaximumHomeDistance() == ConfigZombiePlayersAdvanced.stayNearHome_range3) {
+                                ((WorldServer) this.world).spawnParticle(EnumParticleTypes.REDSTONE, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                                this.setHomePosAndDistance(BlockPos.ORIGIN, -1, true);
+                                player.sendMessage(new TextComponentString("Home removed"));
+                            } else {
+                                ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                                this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
+                                player.sendMessage(new TextComponentString("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1));
+                            }
+
                         } else {
                             ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                                     particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
+                            this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
+                            player.sendMessage(new TextComponentString("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1));
                         }
-
-                    } else {
-                        ((WorldServer) this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
-                                particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                        this.setHomePosAndDistance(getPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
                     }
+
                 }
 
 
             } else if (isRawMeat(itemstack)) {
                 itemUsed = true;
 
+                if (!hasOwner()) {
+                    setOwnerName(player.getName());
+                }
                 ateCalmingItem();
 
                 particle = null;
+            } else if (isCalm() && itemstack.isEmpty()) {
+                shouldFollowOwner = !shouldFollowOwner;
+
+                particle = this.shouldFollowOwner ? EnumParticleTypes.HEART : EnumParticleTypes.SPELL_MOB;
+
+                if (shouldFollowOwner) {
+                    this.setHomePosAndDistance(null, -1);
+                } else {
+                    this.setHomePosAndDistance(homePositionBackup, homeDistBackup);
+                }
+            }
+
+            if (particle != null) {
+                ((WorldServer) this.world).spawnParticle(particle, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
+                        particleCount, 0.3D, 0D, 0.3D, 1D, 0);
+                world.playSound((EntityPlayer)null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
             }
 
             if (itemUsed) {
-                if (particle != null) {
-                    ((WorldServer) this.world).spawnParticle(particle, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
-                            particleCount, 0.3D, 0D, 0.3D, 1D, 0);
-                    world.playSound((EntityPlayer)null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
-                }
 
                 this.consumeItemFromStack(player, itemstack);
                 return true;
@@ -472,14 +555,31 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         String playerUUID = compound.getString("playerUUID");
         gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
 
+        for (int i = 0; i < MAX_CHESTS; i++) {
+            if (compound.hasKey("chest_" + i + "_X")) {
+                this.listPosChests.add(new BlockPos(compound.getInteger("chest_" + i + "_X"),
+                        compound.getInteger("chest_" + i + "_Y"),
+                        compound.getInteger("chest_" + i + "_Z")));
+            }
+        }
+
         if (compound.hasKey("home_X")) {
             this.setHomePosAndDistance(new BlockPos(compound.getInteger("home_X"), compound.getInteger("home_Y"), compound.getInteger("home_Z")), (int)compound.getFloat("home_Dist"));
+        }
+
+        if (compound.hasKey("home_Backup_X")) {
+            homePositionBackup = new BlockPos(compound.getInteger("home_Backup_X"), compound.getInteger("home_Backup_X"), compound.getInteger("home_Backup_X"));
+            homeDistBackup = (int)compound.getFloat("home_Backup_Dist");
         }
 
         risingTime = compound.getInteger("risingTime");
         spawnedFromPlayerDeath = compound.getBoolean("spawnedFromPlayerDeath");
         quiet = compound.getBoolean("quiet");
+        canEatFromChests = compound.getBoolean("canEatFromChests");
+        shouldFollowOwner = compound.getBoolean("shouldFollowOwner");
         calmTime = compound.getInteger("calmTime");
+
+        ownerName = compound.getString("ownerName");
     }
 
     @Override
@@ -489,15 +589,34 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             compound.setString("playerUUID", gameProfile.getId() != null ? gameProfile.getId().toString() : "");
         }
 
-        compound.setInteger("home_X", getHomePosition().getX());
-        compound.setInteger("home_Y", getHomePosition().getY());
-        compound.setInteger("home_Z", getHomePosition().getZ());
+        for (int i = 0; i < listPosChests.size(); i++) {
+            compound.setInteger("chest_" + i + "_X", listPosChests.get(i).getX());
+            compound.setInteger("chest_" + i + "_Y", listPosChests.get(i).getY());
+            compound.setInteger("chest_" + i + "_Z", listPosChests.get(i).getZ());
+        }
+
+        if (homePositionBackup != null) {
+            compound.setInteger("home_Backup_X", homePositionBackup.getX());
+            compound.setInteger("home_Backup_Y", homePositionBackup.getY());
+            compound.setInteger("home_Backup_Z", homePositionBackup.getZ());
+            compound.setFloat("home_Backup_Dist", homeDistBackup);
+        }
+
+        if (getHomePosition() != null) {
+            compound.setInteger("home_X", getHomePosition().getX());
+            compound.setInteger("home_Y", getHomePosition().getY());
+            compound.setInteger("home_Z", getHomePosition().getZ());
+        }
         compound.setFloat("home_Dist", getMaximumHomeDistance());
 
         compound.setInteger("risingTime", risingTime);
         compound.setBoolean("spawnedFromPlayerDeath", spawnedFromPlayerDeath);
         compound.setBoolean("quiet", quiet);
+        compound.setBoolean("canEatFromChests", canEatFromChests);
+        compound.setBoolean("shouldFollowOwner", shouldFollowOwner);
         compound.setInteger("calmTime", calmTime);
+
+        compound.setString("ownerName", ownerName);
 
         return super.writeToNBT(compound);
     }
@@ -563,12 +682,12 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         boolean result = super.attackEntityAsMob(entityIn);
 
         if (!world.isRemote && entityIn instanceof EntityLivingBase) {
-            if (((EntityLivingBase) entityIn).getHealth() <= 0) {
+            if (((EntityLivingBase) entityIn).getHealth() <= 0 && isCalm()) {
                 heal((float)ConfigZombiePlayersAdvanced.healPerKill);
                 ((WorldServer)this.world).spawnParticle(EnumParticleTypes.HEART, false, this.posX, this.posY + this.getEyeHeight() + 0.5D, this.posZ,
                         1, 0.3D, 0D, 0.3D, 1D, 0);
                 world.playSound((EntityPlayer)null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.PLAYERS, 0.5F, world.rand.nextFloat() * 0.1F + 0.9F);
-            } else {
+            } else if (isCalm()) {
                 heal((float)ConfigZombiePlayersAdvanced.healPerHit);
             }
         }
@@ -590,5 +709,191 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean isCalmTimeLow() {
         return getCalmTime() < 20 * 60 * 5;
+    }
+
+    public boolean isMeatyChest(BlockPos pos) {
+        TileEntity tile = world.getTileEntity(pos);
+        if (tile instanceof TileEntityChest && tile instanceof IInventory) {
+            IInventory inv = (IInventory) tile;
+            for (int i = 0; i < inv.getSizeInventory(); i++) {
+                ItemStack stack = inv.getStackInSlot(i);
+                if (!stack.isEmpty() && stack.getCount() > 0) {
+                    if (isRawMeat(stack)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isValidChest(BlockPos pos, boolean sightCheck) {
+        return isWithinHomeDistanceFromPosition(pos) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canCoordBeSeen(this, pos.getX(), pos.getY() + 1, pos.getZ()));
+    }
+
+    public void tickScanForChests() {
+        if ((world.getTotalWorldTime()+this.getEntityId()) % (20*30) != 0) return;
+
+        //CULog.dbg("scanning for chests");
+
+        Iterator<BlockPos> it = listPosChests.iterator();
+        while (it.hasNext()) {
+            BlockPos pos = it.next();
+            if (!isValidChest(pos, false)) {
+                it.remove();
+            }
+        }
+
+        if (listPosChests.size() >= MAX_CHESTS) {
+            return;
+        }
+
+        List<EntityZombiePlayer> listEnts = world.getEntitiesWithinAABB(EntityZombiePlayer.class, new AxisAlignedBB(this.getPosition()).grow(20, 20, 20));
+        Collections.shuffle(listEnts);
+        for (EntityZombiePlayer ent : listEnts) {
+            if (!ent.isCalm()) {
+                continue;
+            }
+            if (listPosChests.size() >= MAX_CHESTS) {
+                return;
+            }
+            //prevent getting coords from other zombies we cant see incase we cant access those areas
+            /*if (!this.canEntityBeSeen(ent)) {
+                return;
+            }*/
+            Iterator<BlockPos> it2 = ent.listPosChests.iterator();
+            while (it2.hasNext()) {
+                BlockPos pos = it2.next();
+
+                if (!hasChestAlready(pos) && isValidChest(pos, true)) {
+                    addChestPos(pos);
+                }
+
+                if (listPosChests.size() >= MAX_CHESTS) {
+                    return;
+                }
+            }
+        }
+
+        int range = ConfigZombiePlayersAdvanced.chestSearchRange;
+        for (int x = -range; x <= range; x++) {
+            for (int y = -range/2; y <= range/2; y++) {
+                for (int z = -range; z <= range; z++) {
+                    BlockPos pos = this.getPosition().add(x, y, z);
+                    if (isValidChest(pos, true)) {
+                        if (!hasChestAlready(pos)) {
+                            addChestPos(pos);
+                        }
+
+                        if (listPosChests.size() >= MAX_CHESTS) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void addChestPos(BlockPos pos) {
+        CULog.dbg("zombie player adding chest pos: " + pos);
+        listPosChests.add(pos);
+    }
+
+    public boolean hasChestAlready(BlockPos pos) {
+        Iterator<BlockPos> it = listPosChests.iterator();
+        while (it.hasNext()) {
+            BlockPos pos2 = it.next();
+            if (pos.equals(pos2)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isCanEatFromChests() {
+        return canEatFromChests;
+    }
+
+    public void setCanEatFromChests(boolean canEatFromChests) {
+        this.canEatFromChests = canEatFromChests;
+    }
+
+    @Nullable
+    @Override
+    public UUID getOwnerId() {
+        return getPlayer() != null ? getPlayer().getUniqueID() : null;
+    }
+
+    @Nullable
+    @Override
+    public Entity getOwner() {
+        return getPlayer();
+    }
+
+    public void setOwnerName(String name) {
+        this.ownerName = name;
+    }
+
+    public EntityPlayer getPlayer() {
+        if (playerWeakReference.get() != null && playerWeakReference.get().isDead) {
+            playerWeakReference.clear();
+        }
+        if (playerWeakReference.get() != null && !playerWeakReference.get().isDead) {
+            return playerWeakReference.get();
+        }
+        if (hasOwner()) {
+            EntityPlayer player = world.getPlayerEntityByName(ownerName);
+            if (player != null) {
+                playerWeakReference = new WeakReference<>(player);
+                return playerWeakReference.get();
+            }
+        }
+        return null;
+    }
+
+    public boolean hasOwner() {
+        return ownerName != null && !ownerName.equals("");
+    }
+
+    public void openChest(BlockPos pos) {
+        CULog.dbg("open chest");
+        hasOpenedChest = true;
+        //keep higher than EntityAIInteractChest.ticksChestOpenMax to avoid bugging it out until i merge code better
+        chestUseTime = 15;
+        posChestUsing = pos;
+        TileEntity tEnt = world.getTileEntity(pos);
+        if (tEnt instanceof TileEntityChest) {
+            TileEntityChest chest = (TileEntityChest) tEnt;
+            chest.numPlayersUsing++;
+            world.addBlockEvent(pos, chest.getBlockType(), 1, chest.numPlayersUsing);
+            world.notifyNeighborsOfStateChange(pos, chest.getBlockType(), false);
+        }
+    }
+
+    public void closeChest(BlockPos pos) {
+        CULog.dbg("close chest");
+        hasOpenedChest = false;
+        TileEntity tEnt = world.getTileEntity(pos);
+        if (tEnt instanceof TileEntityChest) {
+            TileEntityChest chest = (TileEntityChest) tEnt;
+            chest.numPlayersUsing--;
+            if (chest.numPlayersUsing < 0) {
+                chest.numPlayersUsing = 0;
+            }
+            world.addBlockEvent(pos, chest.getBlockType(), 1, chest.numPlayersUsing);
+            world.notifyNeighborsOfStateChange(pos, chest.getBlockType(), false);
+        }
+    }
+
+    public void setHomePosAndDistanceBackup(BlockPos pos, int distance) {
+        this.homePositionBackup = pos;
+        this.homeDistBackup = distance;
+    }
+
+    public void setHomePosAndDistance(BlockPos pos, int distance, boolean setBackup) {
+        super.setHomePosAndDistance(pos, distance);
+        if (setBackup) {
+            setHomePosAndDistanceBackup(pos, distance);
+        }
     }
 }

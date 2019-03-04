@@ -20,7 +20,7 @@ import net.minecraft.util.math.Vec3d;
 
 public class EntityAIInteractChest extends EntityAIBase
 {
-    protected final EntityCreature entity;
+    protected final EntityZombiePlayer entity;
     protected double x;
     protected double y;
     protected double z;
@@ -31,16 +31,7 @@ public class EntityAIInteractChest extends EntityAIBase
     public int ticksChestOpen = 0;
     public int ticksChestOpenMax = 10;
 
-    public boolean hasOpenedChest = false;
-
-    //public boolean hasInteracted = false;
-
-    public EntityAIInteractChest(EntityCreature creatureIn, double speedIn)
-    {
-        this(creatureIn, speedIn, 120);
-    }
-
-    public EntityAIInteractChest(EntityCreature creatureIn, double speedIn, int chance)
+    public EntityAIInteractChest(EntityZombiePlayer creatureIn, double speedIn, int chance)
     {
         this.entity = creatureIn;
         this.speed = speedIn;
@@ -165,8 +156,8 @@ public class EntityAIInteractChest extends EntityAIBase
             chest.setInventorySlotContents(randSlot2, stack1);
 
             entity.swingArm(EnumHand.MAIN_HAND);
-            if (!hasOpenedChest) {
-                openChest();
+            if (!entity.hasOpenedChest) {
+                entity.openChest(new BlockPos(x, y, z));
             }
             //hasInteracted = true;
             CULog.dbg("EntityAIInteractChest swapped item contents");
@@ -179,39 +170,10 @@ public class EntityAIInteractChest extends EntityAIBase
     public void resetTask() {
         CULog.dbg("reset task");
         entity.getNavigator().clearPathEntity();
-        if (hasOpenedChest) {
-            closeChest();
-        }
+        /*if (entity.hasOpenedChest) {
+            entity.closeChest(new BlockPos(x, y, z));
+        }*/
         ticksChestOpen = 0;
         super.resetTask();
-    }
-
-    public void openChest() {
-        CULog.dbg("open chest");
-        hasOpenedChest = true;
-        BlockPos pos = new BlockPos(x, y, z);
-        TileEntity tEnt = entity.world.getTileEntity(pos);
-        if (tEnt instanceof TileEntityChest) {
-            TileEntityChest chest = (TileEntityChest) tEnt;
-            chest.numPlayersUsing++;
-            entity.world.addBlockEvent(pos, chest.getBlockType(), 1, chest.numPlayersUsing);
-            entity.world.notifyNeighborsOfStateChange(pos, chest.getBlockType(), false);
-        }
-    }
-
-    public void closeChest() {
-        CULog.dbg("close chest");
-        hasOpenedChest = false;
-        BlockPos pos = new BlockPos(x, y, z);
-        TileEntity tEnt = entity.world.getTileEntity(pos);
-        if (tEnt instanceof TileEntityChest) {
-            TileEntityChest chest = (TileEntityChest) tEnt;
-            chest.numPlayersUsing--;
-            if (chest.numPlayersUsing < 0) {
-                chest.numPlayersUsing = 0;
-            }
-            entity.world.addBlockEvent(pos, chest.getBlockType(), 1, chest.numPlayersUsing);
-            entity.world.notifyNeighborsOfStateChange(pos, chest.getBlockType(), false);
-        }
     }
 }
