@@ -27,6 +27,8 @@ public class EntityAIFollowOwnerZombie extends EntityAIBase
     float minDist;
     private float oldWaterCost;
 
+    public static double TP_RANGE_SQ = 144.0D;
+
     public EntityAIFollowOwnerZombie(EntityZombiePlayer tameableIn, double followSpeedIn, float minDistIn, float maxDistIn)
     {
         this.entity = tameableIn;
@@ -70,6 +72,20 @@ public class EntityAIFollowOwnerZombie extends EntityAIBase
             this.owner = entitylivingbase;
             return true;
         }
+    }
+
+    public static boolean needsToTeleportToOwner(EntityZombiePlayer entity) {
+        if (!entity.isCalm() || !entity.shouldFollowOwner) return false;
+        EntityLivingBase entitylivingbase = (EntityLivingBase) entity.getOwner();
+        if (entitylivingbase == null)
+        {
+            return false;
+        } else if (entitylivingbase instanceof EntityPlayer && ((EntityPlayer)entitylivingbase).isSpectator()) {
+            return false;
+        } else if (entity.getDistanceSqToEntity(entitylivingbase) < TP_RANGE_SQ) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -117,7 +133,7 @@ public class EntityAIFollowOwnerZombie extends EntityAIBase
                 {
                     if (!this.entity.getLeashed() && !this.entity.isRiding())
                     {
-                        if (this.entity.getDistanceSqToEntity(this.owner) >= 144.0D)
+                        if (this.entity.getDistanceSqToEntity(this.owner) >= TP_RANGE_SQ)
                         {
                             int i = MathHelper.floor(this.owner.posX) - 2;
                             int j = MathHelper.floor(this.owner.posZ) - 2;

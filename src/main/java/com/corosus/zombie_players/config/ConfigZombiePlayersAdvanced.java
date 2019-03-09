@@ -34,6 +34,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:fish, minecraft:beef, minecraft:chicken, minecraft:rabbit";
 
+	public static int tickDelayBetweenPlaying = 20*60*60;
+
 	@Override
 	public String getName() {
 		return "Zombie_Players_Advanced";

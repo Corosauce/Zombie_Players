@@ -31,10 +31,10 @@ public class EntityAIPlayZombiePlayer extends EntityAIBase
         if (this.zombiePlayer.getRNG().nextInt(200) != 0)
         {
             return false;
-        }
-        else
-        {
-            List<EntityZombiePlayer> list = this.zombiePlayer.world.<EntityZombiePlayer>getEntitiesWithinAABB(EntityZombiePlayer.class, this.zombiePlayer.getEntityBoundingBox().grow(6.0D, 3.0D, 6.0D));
+        } else if (!zombiePlayer.canPlay()) {
+            return false;
+        } else {
+            List<EntityZombiePlayer> list = this.zombiePlayer.world.getEntitiesWithinAABB(EntityZombiePlayer.class, this.zombiePlayer.getEntityBoundingBox().grow(12.0D, 3.0D, 12.0D));
             double d0 = Double.MAX_VALUE;
 
             for (EntityZombiePlayer entityvillager : list)
@@ -53,12 +53,15 @@ public class EntityAIPlayZombiePlayer extends EntityAIBase
 
             if (this.target == null)
             {
-                Vec3d vec3d = RandomPositionGenerator.findRandomTarget(this.zombiePlayer, 16, 3);
+                /*Vec3d vec3d = RandomPositionGenerator.findRandomTarget(this.zombiePlayer, 16, 3);
 
                 if (vec3d == null)
                 {
                     return false;
-                }
+                }*/
+
+                //only play with other zombies
+                return false;
             }
 
             return true;
@@ -82,6 +85,8 @@ public class EntityAIPlayZombiePlayer extends EntityAIBase
         {
             this.zombiePlayer.setPlaying(true);
         }
+
+        zombiePlayer.markStartPlaying();
 
         this.playTime = 1000;
     }

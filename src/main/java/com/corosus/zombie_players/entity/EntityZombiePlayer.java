@@ -65,8 +65,6 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             if (player.getBedLocation() != null) {
                 zombie.setHomePosAndDistance(player.getBedLocation(), 16, true);
             }
-            //doesnt do much during rising...
-            //zombie.setRotation(player.rotationYaw, player.rotationPitch);
         }
         return zombie;
     }
@@ -114,6 +112,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public BlockPos homePositionBackup = null;
     public int homeDistBackup = -1;
+
+    public long lastTimeStartedPlaying = 0;
 
     public EntityZombiePlayer(World worldIn) {
         super(worldIn);
@@ -580,6 +580,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         calmTime = compound.getInteger("calmTime");
 
         ownerName = compound.getString("ownerName");
+
+        lastTimeStartedPlaying = compound.getLong("lastTimeStartedPlaying");
     }
 
     @Override
@@ -617,6 +619,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         compound.setInteger("calmTime", calmTime);
 
         compound.setString("ownerName", ownerName);
+
+        compound.setLong("lastTimeStartedPlaying", lastTimeStartedPlaying);
 
         return super.writeToNBT(compound);
     }
@@ -895,5 +899,18 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         if (setBackup) {
             setHomePosAndDistanceBackup(pos, distance);
         }
+    }
+
+    public void markStartPlaying() {
+        lastTimeStartedPlaying = world.getTotalWorldTime();
+    }
+
+    public boolean canPlay() {
+        return lastTimeStartedPlaying + ConfigZombiePlayersAdvanced.tickDelayBetweenPlaying < world.getTotalWorldTime();
+    }
+
+    @Override
+    public boolean canTrample(World world, Block block, BlockPos pos, float fallDistance) {
+        return false;//super.canTrample(world, block, pos, fallDistance);
     }
 }

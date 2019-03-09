@@ -4,12 +4,14 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import com.corosus.zombie_players.entity.EntityZombiePlayer;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.ai.EntityAIBase;
+import net.minecraft.entity.ai.EntityAIFollowOwner;
 import net.minecraft.entity.ai.RandomPositionGenerator;
 import net.minecraft.pathfinding.Path;
 import net.minecraft.pathfinding.PathNavigate;
@@ -68,6 +70,10 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends EntityAIBa
     {
 
         if (this.theEntity.getHealth() > healthToAvoid) return false;
+
+        if (theEntity instanceof EntityZombiePlayer && EntityAIFollowOwnerZombie.needsToTeleportToOwner((EntityZombiePlayer) theEntity)) {
+            return false;
+        }
 
         List<T> list = this.theEntity.world.<T>getEntitiesWithinAABB(this.classToAvoid,
                 this.theEntity.getEntityBoundingBox().expand((double)this.avoidDistance, 3.0D, (double)this.avoidDistance),
