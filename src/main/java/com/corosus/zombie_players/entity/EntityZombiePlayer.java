@@ -80,8 +80,9 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         return zombie;
     }
 
-    public static Predicate<EntityLiving> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null && IMob.VISIBLE_MOB_SELECTOR.apply(p_apply_1_) && !(p_apply_1_ instanceof EntityCreeper) && (!(p_apply_1_ instanceof EntityZombiePlayer) ||
-            (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0 && p_apply_1_.getAttackTarget() != null));
+    public static Predicate<EntityLivingBase> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null && IMob.VISIBLE_MOB_SELECTOR.apply(p_apply_1_) &&
+            !(p_apply_1_ instanceof EntityCreeper) &&
+            (!(p_apply_1_ instanceof EntityZombiePlayer) || (p_apply_1_ instanceof EntityZombiePlayer && ((EntityZombiePlayer) p_apply_1_).calmTime == 0 && ((EntityZombiePlayer) p_apply_1_).getAttackTarget() != null));
 
     public boolean spawnedFromPlayerDeath = false;
 
