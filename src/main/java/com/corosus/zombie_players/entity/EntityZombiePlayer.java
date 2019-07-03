@@ -217,7 +217,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
             //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
             if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && world.getTotalWorldTime() % 20 == 0)) {
-                for (EntityItem entityitem : this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D))) {
+                /*for (EntityItem entityitem : this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D))) {
                     if (!entityitem.isDead && !entityitem.getItem().isEmpty() && !entityitem.cannotPickup() && isItemWeWant(entityitem.getItem())) {
                         //this.updateEquipmentIfNeeded(entityitem);
                         this.onItemPickup(entityitem, entityitem.getItem().getCount());
@@ -227,6 +227,20 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                         //only have 1 ate a time to stagger hogging
                         break;
                     }
+                }*/
+
+                //feels a bit frankensteined....
+
+                EntityItem item = this.world.getEntitiesWithinAABB(EntityItem.class, this.getEntityBoundingBox().grow(1.0D, 0.0D, 1.0D)
+                        , entityitem -> !entityitem.isDead &&
+                                !entityitem.getItem().isEmpty() &&
+                                !entityitem.cannotPickup() &&
+                                isItemWeWant(entityitem.getItem()))
+                        .stream().findFirst().get();
+                if (item != null) {
+                    this.onItemPickup(item, item.getItem().getCount());
+                    item.setDead();
+                    ateCalmingItem();
                 }
             }
 
@@ -341,6 +355,8 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
     public boolean isRawMeat(ItemStack stack) {
         Item item = stack.getItem();
+        //not enough to justify predicate use here imo
+        boolean has = Zombie_Players.listCalmingItems.stream().anyMatch(itemToMatch -> itemToMatch == item);
         return Zombie_Players.listCalmingItems.contains(item);
     }
 
