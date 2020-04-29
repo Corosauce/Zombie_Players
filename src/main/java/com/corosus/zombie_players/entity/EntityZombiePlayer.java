@@ -654,7 +654,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
         if (hasCustomName()) {
             return new TextComponentString(getCustomNameTag());
         } else {
-            return new TextComponentString("Zombie " + gameProfile.getName());
+            return new TextComponentString("Zombie " + gameProfile != null ? gameProfile.getName() : "Player");
         }
     }
 
