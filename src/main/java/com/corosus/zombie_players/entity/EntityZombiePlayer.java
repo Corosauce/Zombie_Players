@@ -502,7 +502,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
                     if (name.equals("") || name.equals(" ")) {
                         fallback = true;
                     } else {
-                        profile = new GameProfile(null, name);
+                        profile = new GameProfile(EntityPlayer.getOfflineUUID(name), name);
                     }
                 } else {
                     fallback = true;
@@ -512,7 +512,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
             }
 
             if (fallback) {
-                profile = new GameProfile(null, "Corosus");
+                profile = new GameProfile(EntityPlayer.getOfflineUUID("Corosus"), "Corosus");
             }
 
             setGameProfile(profile);
@@ -554,7 +554,7 @@ public class EntityZombiePlayer extends EntityZombie implements IEntityAdditiona
 
         String playerName = compound.getString("playerName");
         String playerUUID = compound.getString("playerUUID");
-        gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
+        gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : EntityPlayer.getOfflineUUID(playerName), playerName);
 
         for (int i = 0; i < MAX_CHESTS; i++) {
             if (compound.hasKey("chest_" + i + "_X")) {
