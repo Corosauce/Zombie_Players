@@ -51,6 +51,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BedItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -235,7 +236,7 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
             this.setBaby(!this.isBaby());
 
             particle = ParticleTypes.WITCH;
-         } else if (isCalm() && itemstack.getItem() == Item.getItemFromBlock(Blocks.CHEST)) {
+         } else if (isCalm() && itemstack.getItem() == Item.BY_BLOCK.get(Blocks.CHEST)) {
             //itemUsed = true;
             this.setCanEatFromChests(!this.canEatFromChests);
 
@@ -243,16 +244,18 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
          } else if (isCalm() && itemstack.getItem() == Items.ROTTEN_FLESH) {
             itemUsed = true;
 
-            this.dropEquipment(true, 0);
+            //TODO: 1.18, pretty sure this is the correct replacement here, verify this works and drops what theyre holding
+            this.dropCustomDeathLoot(DamageSource.IN_WALL, 0, true);
+            //this.dropEquipment(true, 0);
             this.clearInventory();
 
             particle = ParticleTypes.WITCH;
-         } else if (itemstack.getItem() == Items.BED) {
+         } else if (itemstack.getItem() instanceof BedItem) {
             if (isCalm()) {
                particle = null;
                if (this.isLeashed()) {
-                  this.level.addParticle(ParticleTypes.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                          particleCount, 0.3D, 0D, 0.3D);
+                  for (int i = 0; i < particleCount; i++) this.level.addParticle(DustParticleOptions.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
+                          0.3D, 0D, 0.3D);
                   player.sendMessage(new TextComponent("Can't set home while leashed"), uuid);
                } else {
                   if (this.hasRestriction()) {
@@ -266,7 +269,7 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
                         this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range3, true);
                         player.sendMessage(new TextComponent("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range3), uuid);
                      } else if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range3) {
-                        for (int i = 0; i < particleCount; i++) this.level.addParticle(ParticleTypes.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
+                        for (int i = 0; i < particleCount; i++) this.level.addParticle(DustParticleOptions.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
                         this.setHomePosAndDistance(BlockPos.ZERO, -1, true);
                         player.sendMessage(new TextComponent("Home removed"), uuid);
                      } else {
@@ -299,7 +302,7 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
          } else if (isCalm() && itemstack.isEmpty()) {
             shouldFollowOwner = !shouldFollowOwner;
 
-            particle = this.shouldFollowOwner ? ParticleTypes.HEART : ParticleTypes.SPELL_MOB;
+            particle = this.shouldFollowOwner ? ParticleTypes.HEART : ParticleTypes.WITCH;
 
             if (shouldFollowOwner) {
                this.restrictTo(null, -1);
@@ -621,18 +624,6 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
 
    protected void dropCustomDeathLoot(DamageSource p_34291_, int p_34292_, boolean p_34293_) {
       super.dropCustomDeathLoot(p_34291_, p_34292_, p_34293_);
-      Entity entity = p_34291_.getEntity();
-      if (entity instanceof Creeper) {
-         Creeper creeper = (Creeper)entity;
-         if (creeper.canDropMobsSkull()) {
-            ItemStack itemstack = this.getSkull();
-            if (!itemstack.isEmpty()) {
-               creeper.increaseDroppedSkulls();
-               this.spawnAtLocation(itemstack);
-            }
-         }
-      }
-
    }
 
    protected ItemStack getSkull() {
@@ -662,7 +653,13 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
     * new methods
     * **/
 
-
+   protected void consumeItemFromStack(Player player, ItemStack stack)
+   {
+      if (!player.isCreative())
+      {
+         stack.shrink(1);
+      }
+   }
 
    public void onBecomeCalm() {
       setCanEquip(ConfigZombiePlayers.pickupLootWhenCalm);
