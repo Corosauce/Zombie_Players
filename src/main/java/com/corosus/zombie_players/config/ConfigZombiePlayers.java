@@ -1,12 +1,10 @@
 package com.corosus.zombie_players.config;
 
-import CoroUtil.forge.CULog;
+import com.corosus.coroutil.util.CULog;
+import com.corosus.modconfig.ConfigComment;
+import com.corosus.modconfig.ConfigMod;
+import com.corosus.modconfig.IConfigCategory;
 import com.corosus.zombie_players.Zombie_Players;
-import modconfig.ConfigComment;
-import modconfig.ConfigMod;
-import modconfig.IConfigCategory;
-
-import java.io.File;
 
 public class ConfigZombiePlayers implements IConfigCategory {
 

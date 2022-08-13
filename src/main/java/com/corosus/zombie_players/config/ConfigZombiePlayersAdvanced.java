@@ -1,15 +1,12 @@
 package com.corosus.zombie_players.config;
 
-import CoroUtil.forge.CULog;
+import com.corosus.coroutil.util.CULog;
+import com.corosus.modconfig.ConfigComment;
+import com.corosus.modconfig.IConfigCategory;
 import com.corosus.zombie_players.Zombie_Players;
-import modconfig.ConfigComment;
-import modconfig.IConfigCategory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.NonNullList;
-import net.minecraftforge.oredict.OreDictionary;
-
-import java.util.ArrayList;
+import net.minecraft.core.NonNullList;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 

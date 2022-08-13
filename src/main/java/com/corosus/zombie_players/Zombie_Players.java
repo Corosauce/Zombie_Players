@@ -11,20 +11,23 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Mod(modid = Zombie_Players.modID, name="Zombie Players", version=Zombie_Players.version, acceptableRemoteVersions="*", dependencies="required-after:coroutil@[1.12.1-1.2.11,)")
+@Mod(Zombie_Players.modID)
 public class Zombie_Players {
-	
-	@Mod.Instance( value = Zombie_Players.modID )
-	public static Zombie_Players instance;
-	public static final String modID = "zombie_players";
+
+	public static final String MODID = "zombie_players";
     public static final String version = "${version}";
 
     @SidedProxy(clientSide = "com.corosus.zombie_players.ClientProxy", serverSide = "com.corosus.zombie_players.CommonProxy")
@@ -35,6 +38,22 @@ public class Zombie_Players {
     public static List<Item> listCalmingItems = new ArrayList<>();
 
     public static ConfigZombiePlayersAdvanced configDev = new ConfigZombiePlayersAdvanced();
+
+    public Zombie_Players() {
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::doClientStuff);
+        MinecraftForge.EVENT_BUS.register(new EventHandlerForge());
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, MovePlusCfgForge.CLIENT_CONFIG);
+    }
+
+    private void setup(final FMLCommonSetupEvent event)
+    {
+
+    }
+
+    private void doClientStuff(final FMLClientSetupEvent event) {
+
+    }
     
 	@Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event)
