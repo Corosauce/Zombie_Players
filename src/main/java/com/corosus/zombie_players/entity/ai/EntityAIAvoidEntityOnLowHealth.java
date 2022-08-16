@@ -1,7 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.zombie_players.entity.ZombiePlayerNew;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
@@ -13,7 +12,9 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.function.Predicate;
 
 public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
 {
@@ -43,7 +44,7 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
         this.canBeSeenSelector = new Predicate<Entity>()
         {
             @Override
-            public boolean apply(@Nullable Entity p_apply_1_)
+            public boolean test(@Nullable Entity p_apply_1_)
             {
                 return p_apply_1_.isAlive() && EntityAIAvoidEntityOnLowHealth.this.theEntity.getSensing().hasLineOfSight(p_apply_1_);
             }
@@ -55,7 +56,8 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
         this.farSpeed = farSpeedIn;
         this.nearSpeed = nearSpeedIn;
         this.entityPathNavigate = theEntityIn.getNavigation();
-        this.setMutexBits(1);
+        //this.setMutexBits(1);
+        this.setFlags(EnumSet.of(Goal.Flag.MOVE));
         this.healthToAvoid = healthToAvoid;
     }
 
@@ -72,9 +74,9 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
             return false;
         }
 
-        List<T> list = this.theEntity.level.<T>getEntities(this.classToAvoid,
+        List<T> list = this.theEntity.level.getEntitiesOfClass(this.classToAvoid,
                 this.theEntity.getBoundingBox().expandTowards((double)this.avoidDistance, 3.0D, (double)this.avoidDistance),
-                Predicates.and(new Predicate[] {EntitySelector.CAN_AI_TARGET, this.canBeSeenSelector, this.avoidTargetSelector}));
+                EntitySelector.NO_CREATIVE_OR_SPECTATOR::test);
 
         if (list.isEmpty())
         {

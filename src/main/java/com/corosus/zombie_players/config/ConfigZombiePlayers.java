@@ -68,7 +68,7 @@ public class ConfigZombiePlayers implements IConfigCategory {
 		}
 		Zombie_Players.zombiePlayerNames = names;
 
-		if (ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles && !ConfigMod.instance.configLookup.containsKey(Zombie_Players.configDev.getRegistryName())) {
+		if (ConfigZombiePlayers.enableAdvancedDeveloperConfigFiles && !ConfigMod.instance.lookupRegistryNameToConfig.containsKey(Zombie_Players.configDev.getRegistryName())) {
 			ConfigMod.addConfigFile(null, Zombie_Players.configDev);
 		}
 	}

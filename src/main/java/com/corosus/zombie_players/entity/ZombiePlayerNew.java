@@ -14,6 +14,8 @@ import com.corosus.zombie_players.EntityRegistry;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
+import com.corosus.zombie_players.entity.ai.EntityAINearestAttackableTargetIfCalm;
+import com.corosus.zombie_players.entity.ai.NearestAttackableTargetGoalIfCalm;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
@@ -50,6 +52,7 @@ import net.minecraft.world.entity.animal.Chicken;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BedItem;
 import net.minecraft.world.item.Item;
@@ -67,7 +70,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import org.apache.commons.lang3.Validate;
 
-public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnData, OwnableEntity {
+public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity {
    private static final Predicate<Difficulty> DOOR_BREAKING_PREDICATE = (p_34284_) -> {
       return p_34284_ == Difficulty.HARD;
    };
@@ -114,6 +117,12 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
       super(p_34271_, p_34272_);
    }*/
 
+   private static com.google.common.base.Predicate<Entity> VISIBLE_MOB_SELECTOR = p_apply_1_ -> !p_apply_1_.isInvisible();
+
+   public static com.google.common.base.Predicate<Entity> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null && VISIBLE_MOB_SELECTOR.apply(p_apply_1_) &&
+           !(p_apply_1_ instanceof Creeper) &&
+           (!(p_apply_1_ instanceof ZombiePlayerNew) || (p_apply_1_ instanceof ZombiePlayerNew && ((ZombiePlayerNew) p_apply_1_).calmTime == 0 && ((ZombiePlayerNew) p_apply_1_).getTarget() != null));
+
    public ZombiePlayerNew(Level p_34274_) {
       this(EntityRegistry.zombie_player, p_34274_);
    }
@@ -135,7 +144,7 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
       //this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
       //this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));
 
-      /*this.goalSelector.addGoal(taskID++, new EntityAISwimming(this));
+      this.goalSelector.addGoal(taskID++, new EntityAISwimming(this));
       this.goalSelector.addGoal(taskID++, new EntityAIAvoidEntityOnLowHealth(this, EntityLivingBase.class, ENEMY_PREDICATE,
               16.0F, 1.4D, 1.4D, 10F));
       this.goalSelector.addGoal(taskID++, new EntityAIEatToHeal(this));
@@ -155,12 +164,10 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
       this.goalSelector.addGoal(taskID, new EntityAIWatchClosest(this, EntityZombiePlayer.class, 8.0F));
       this.goalSelector.addGoal(taskID, new EntityAILookIdle(this));
 
-      this.targetSelector.addGoal(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
-      this.targetSelector.addGoal(2, new EntityAINearestAttackableTargetIfCalm(this, Player.class, true, true));
-      this.targetSelector.addGoal(3, new EntityAINearestAttackableTargetIfCalm(this, EntityVillager.class, false, true));
-      this.targetSelector.addGoal(3, new EntityAINearestAttackableTargetIfCalm(this, EntityIronGolem.class, true, true));
+      //this.targetSelector.addGoal(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
+      this.targetSelector.addGoal(2, new NearestAttackableTargetGoalIfCalm(this, Player.class, 10,true, true, null, true));
 
-      this.targetSelector.addGoal(3, new EntityAINearestAttackableTargetIfCalm(this, EntityLiving.class, 0, true, false, ENEMY_PREDICATE, false));*/
+      this.targetSelector.addGoal(3, new NearestAttackableTargetGoalIfCalm(this, Mob.class, 0, true, false, ENEMY_PREDICATE, false));
    }
 
    public static AttributeSupplier.Builder createAttributes() {
@@ -646,6 +653,22 @@ public class ZombiePlayerNew extends Monster implements IEntityAdditionalSpawnDa
          return getCustomName();
       } else {
          return new TextComponent("Zombie " + gameProfile.getName());
+      }
+   }
+
+   @Override
+   public void setTarget(@Nullable LivingEntity entitylivingbaseIn) {
+      //cancel player targetting if calm
+      if (calmTime > 0 && entitylivingbaseIn instanceof Player) {
+         super.setTarget(null);
+         //usefull until zombieawareness update that patches this better
+         this.getNavigation().stop();
+         //cancel other AI making us target other zombie players, mainly the call for help logic from EntityAIHurtByTarget
+         //also only if that other zombie player is calm too
+      } else if (calmTime > 0 && entitylivingbaseIn instanceof ZombiePlayerNew && ((ZombiePlayerNew) entitylivingbaseIn).calmTime > 0) {
+         //super.setAttackTarget(null);
+      } else {
+         super.setTarget(entitylivingbaseIn);
       }
    }
 
