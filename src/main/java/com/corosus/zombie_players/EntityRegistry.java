@@ -4,6 +4,7 @@ import com.corosus.zombie_players.entity.ZombiePlayerNew;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.IForgeRegistry;
@@ -21,11 +22,16 @@ public class EntityRegistry {
         r.register(
                 EntityType.Builder.of(ZombiePlayerNew::new, MobCategory.MISC)
                         .setShouldReceiveVelocityUpdates(false)
-                        .setUpdateInterval(20)
+                        .setUpdateInterval(3)
                         .setTrackingRange(128)
-                        .sized(0f, 0f)
+                        .sized(0.6F, 1.95F)
                         .build("zombie_player")
                         .setRegistryName("zombie_player"));
+    }
+
+    @SubscribeEvent
+    public static void initializeAttributes(EntityAttributeCreationEvent event) {
+        event.put(zombie_player, ZombiePlayerNew.createAttributes().build());
     }
 
 }

@@ -14,8 +14,7 @@ import com.corosus.zombie_players.EntityRegistry;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
-import com.corosus.zombie_players.entity.ai.EntityAINearestAttackableTargetIfCalm;
-import com.corosus.zombie_players.entity.ai.NearestAttackableTargetGoalIfCalm;
+import com.corosus.zombie_players.entity.ai.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import io.netty.buffer.ByteBuf;
@@ -29,22 +28,20 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.BreakDoorGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.RemoveBlockGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.util.GoalUtils;
@@ -67,7 +64,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
+import net.minecraftforge.network.NetworkHooks;
 import org.apache.commons.lang3.Validate;
 
 public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity {
@@ -113,9 +112,46 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
    public long lastTimeStartedPlaying = 0;
 
-   /*public ZombiePlayerNew(EntityType<? extends ZombiePlayerNew> p_34271_, Level p_34272_) {
-      super(p_34271_, p_34272_);
+   /*public ZombiePlayerNew(EntityType<Entity> entityEntityType, Level level) {
+      super((EntityType<? extends Zombie>) entityEntityType, level);
    }*/
+
+   public ZombiePlayerNew(EntityType<ZombiePlayerNew> entityEntityType, Level level) {
+      super(entityEntityType, level);
+      ((GroundPathNavigation)getNavigation()).setCanOpenDoors(true);
+   }
+
+   public static ZombiePlayerNew spawnInPlaceOfPlayer(Player player) {
+      boolean spawn = true;
+      ZombiePlayerNew zombie = null;
+      if (player.getSleepingPos().get() != null) {
+         if (player.getSleepingPos().get().distSqr(new BlockPos(Mth.floor(player.getX()), Mth.floor(player.getY()), Mth.floor(player.getZ()))) <
+                 ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn * ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn) {
+            spawn = false;
+         }
+      }
+      if (spawn) {
+
+         if (player.level instanceof ServerLevelAccessor) {
+            zombie = spawnInPlaceOfPlayer(player.level, player.getX(), player.getY(), player.getZ(), player.getGameProfile());
+            if (player.getSleepingPos().get() != null) {
+               zombie.setHomePosAndDistance(player.getSleepingPos().get(), 16, true);
+            }
+         }
+      }
+      return zombie;
+   }
+
+   public static ZombiePlayerNew spawnInPlaceOfPlayer(Level world, double x, double y, double z, GameProfile profile) {
+         ZombiePlayerNew zombie = new ZombiePlayerNew(EntityRegistry.zombie_player, world);
+         zombie.setPos(x, y, z);
+         zombie.setGameProfile(profile);
+         zombie.finalizeSpawn((ServerLevelAccessor) world, world.getCurrentDifficultyAt(new BlockPos(x, y, z)), MobSpawnType.NATURAL, (SpawnGroupData)null, (CompoundTag)null);
+         zombie.setPersistenceRequired();
+         zombie.spawnedFromPlayerDeath = true;
+         world.addFreshEntity(zombie);
+         return zombie;
+   }
 
    private static com.google.common.base.Predicate<Entity> VISIBLE_MOB_SELECTOR = p_apply_1_ -> !p_apply_1_.isInvisible();
 
@@ -123,16 +159,21 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
            !(p_apply_1_ instanceof Creeper) &&
            (!(p_apply_1_ instanceof ZombiePlayerNew) || (p_apply_1_ instanceof ZombiePlayerNew && ((ZombiePlayerNew) p_apply_1_).calmTime == 0 && ((ZombiePlayerNew) p_apply_1_).getTarget() != null));
 
-   public ZombiePlayerNew(Level p_34274_) {
+   /*public ZombiePlayerNew(Level p_34274_) {
       this(EntityRegistry.zombie_player, p_34274_);
-   }
+   }*/
 
-   public ZombiePlayerNew(EntityType<ZombiePlayerNew> entityEntityType, Level level) {
+   /*public ZombiePlayerNew(EntityType<ZombiePlayerNew> entityEntityType, Level level) {
       super(entityEntityType, level);
-   }
+   }*/
+
+
 
    protected void registerGoals() {
-      //this.goalSelector.addGoal(4, new ZombiePlayerNew.ZombieAttackTurtleEggGoal(this, 1.0D, 3));
+
+      int taskID = 0;
+
+      /*//this.goalSelector.addGoal(4, new ZombiePlayerNew.ZombieAttackTurtleEggGoal(this, 1.0D, 3));
       this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
       this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
       //this.goalSelector.addGoal(2, new ZombieAttackGoal(this, 1.0D, false));
@@ -142,15 +183,15 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
       //this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, AbstractVillager.class, false));
       //this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
-      //this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));
+      //this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));*/
 
-      this.goalSelector.addGoal(taskID++, new EntityAISwimming(this));
-      this.goalSelector.addGoal(taskID++, new EntityAIAvoidEntityOnLowHealth(this, EntityLivingBase.class, ENEMY_PREDICATE,
+      this.goalSelector.addGoal(taskID++, new FloatGoal(this));
+      this.goalSelector.addGoal(taskID++, new EntityAIAvoidEntityOnLowHealth(this, LivingEntity.class, ENEMY_PREDICATE,
               16.0F, 1.4D, 1.4D, 10F));
       this.goalSelector.addGoal(taskID++, new EntityAIEatToHeal(this));
       this.goalSelector.addGoal(taskID++, new EntityAIZombieAttackWeaponReach(this, 1.0D, false));
       this.goalSelector.addGoal(taskID++, new EntityAIMoveToWantedNearbyItems(this, 1.15D));
-      this.goalSelector.addGoal(taskID++, new EntityAIOpenDoor(this, false));
+      this.goalSelector.addGoal(taskID++, new OpenDoorGoal(this, false));
       this.goalSelector.addGoal(taskID++, new EntityAIFollowOwnerZombie(this, 1.2D, 10.0F, 2.0F));
       this.goalSelector.addGoal(taskID++, new EntityAIMoveTowardsRestrictionZombie(this, 1.0D) {});
       this.goalSelector.addGoal(taskID++, new EntityAITemptZombie(this, 1.2D, false));
@@ -158,11 +199,11 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       //will this mess with calm state?
       this.goalSelector.addGoal(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
       this.goalSelector.addGoal(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
-      this.goalSelector.addGoal(taskID++, new EntityAIWanderAvoidWater(this, 1.0D));
+      this.goalSelector.addGoal(taskID++, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
-      this.goalSelector.addGoal(taskID, new EntityAIWatchClosest(this, Player.class, 8.0F));
-      this.goalSelector.addGoal(taskID, new EntityAIWatchClosest(this, EntityZombiePlayer.class, 8.0F));
-      this.goalSelector.addGoal(taskID, new EntityAILookIdle(this));
+      this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, Player.class, 8.0F));
+      this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, ZombiePlayerNew.class, 8.0F));
+      this.goalSelector.addGoal(taskID, new RandomLookAroundGoal(this));
 
       //this.targetSelector.addGoal(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
       this.targetSelector.addGoal(2, new NearestAttackableTargetGoalIfCalm(this, Player.class, 10,true, true, null, true));
@@ -197,7 +238,6 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
          this.goalSelector.removeGoal(this.breakDoorGoal);
          this.canBreakDoors = false;
       }
-
    }
 
    protected boolean supportsBreakDoorGoal() {
@@ -217,8 +257,9 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       super.onSyncedDataUpdated(p_34307_);
    }
 
+   @Override
    protected boolean convertsInWater() {
-      return true;
+      return false;
    }
 
    @Override
@@ -335,9 +376,7 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    }
 
    public void tick() {
-      if (!this.level.isClientSide && this.isAlive() && !this.isNoAi()) {
-
-      }
+      if (risingTime < risingTimeMax) risingTime++;
 
       if (!level.isClientSide()) {
          if (calmTime > 0) {
@@ -419,7 +458,8 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
                double y2 = (level.random.nextDouble() - level.random.nextDouble()) * speed;
                double z2 = (level.random.nextDouble() - level.random.nextDouble()) * speed;
                //level.addParticle(ParticleTypes.BLOCK_DUST, getX() + x1, getY(), getZ() + z1, x2, y2, z2, Block.getId(state));
-               ((ServerLevel)this.level).sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), getX() + x1, getY(), getZ() + z1, 10, (double)(this.getBbWidth() / 4.0F), (double)(this.getBbHeight() / 4.0F), (double)(this.getBbWidth() / 4.0F), 0.05D);
+               this.level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, state), false, getX() + x1, getY(), getZ() + z1, 0, 0, 0);
+               //((ServerLevel)this.level).sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), getX() + x1, getY(), getZ() + z1, 10, (double)(this.getBbWidth() / 4.0F), (double)(this.getBbHeight() / 4.0F), (double)(this.getBbWidth() / 4.0F), 0.05D);
             }
          }
       } else {
@@ -430,26 +470,8 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    }
 
    public void aiStep() {
-      if (this.isAlive()) {
-         boolean flag = this.isSunSensitive() && this.isSunBurnTick();
-         if (flag) {
-            ItemStack itemstack = this.getItemBySlot(EquipmentSlot.HEAD);
-            if (!itemstack.isEmpty()) {
-               if (itemstack.isDamageableItem()) {
-                  itemstack.setDamageValue(itemstack.getDamageValue() + this.random.nextInt(2));
-                  if (itemstack.getDamageValue() >= itemstack.getMaxDamage()) {
-                     this.broadcastBreakEvent(EquipmentSlot.HEAD);
-                     this.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
-                  }
-               }
-
-               flag = false;
-            }
-
-            if (flag) {
-               this.setSecondsOnFire(8);
-            }
-         }
+      if (isCalm() && isCanEatFromChests()) {
+         tickScanForChests();
       }
 
       super.aiStep();
@@ -524,18 +546,88 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
    }
 
-   public void addAdditionalSaveData(CompoundTag p_34319_) {
-      super.addAdditionalSaveData(p_34319_);
-      p_34319_.putBoolean("IsBaby", this.isBaby());
-      p_34319_.putBoolean("CanBreakDoors", this.canBreakDoors());
-      p_34319_.putInt("InWaterTime", this.isInWater() ? this.inWaterTime : -1);
+   public void addAdditionalSaveData(CompoundTag compound) {
+      super.addAdditionalSaveData(compound);
+      compound.putBoolean("IsBaby", this.isBaby());
+      compound.putBoolean("CanBreakDoors", this.canBreakDoors());
+      compound.putInt("InWaterTime", this.isInWater() ? this.inWaterTime : -1);
+
+      if (compound != null) {
+         compound.putString("playerName", gameProfile.getName());
+         compound.putString("playerUUID", gameProfile.getId() != null ? gameProfile.getId().toString() : "");
+      }
+
+      for (int i = 0; i < listPosChests.size(); i++) {
+         compound.putInt("chest_" + i + "_X", listPosChests.get(i).getX());
+         compound.putInt("chest_" + i + "_Y", listPosChests.get(i).getY());
+         compound.putInt("chest_" + i + "_Z", listPosChests.get(i).getZ());
+      }
+
+      if (homePositionBackup != null) {
+         compound.putInt("home_Backup_X", homePositionBackup.getX());
+         compound.putInt("home_Backup_Y", homePositionBackup.getY());
+         compound.putInt("home_Backup_Z", homePositionBackup.getZ());
+         compound.putFloat("home_Backup_Dist", homeDistBackup);
+      }
+
+      if (getRestrictCenter() != null) {
+         compound.putInt("home_X", getRestrictCenter().getX());
+         compound.putInt("home_Y", getRestrictCenter().getY());
+         compound.putInt("home_Z", getRestrictCenter().getZ());
+      }
+      compound.putFloat("home_Dist", getRestrictRadius());
+
+      compound.putInt("risingTime", risingTime);
+      compound.putBoolean("spawnedFromPlayerDeath", spawnedFromPlayerDeath);
+      compound.putBoolean("quiet", quiet);
+      compound.putBoolean("canEatFromChests", canEatFromChests);
+      compound.putBoolean("shouldFollowOwner", shouldFollowOwner);
+      compound.putInt("calmTime", calmTime);
+
+      compound.putString("ownerName", ownerName);
+
+      compound.putLong("lastTimeStartedPlaying", lastTimeStartedPlaying);
    }
 
-   public void readAdditionalSaveData(CompoundTag p_34305_) {
-      super.readAdditionalSaveData(p_34305_);
-      this.setBaby(p_34305_.getBoolean("IsBaby"));
-      this.setCanBreakDoors(p_34305_.getBoolean("CanBreakDoors"));
-      this.inWaterTime = p_34305_.getInt("InWaterTime");
+   public void readAdditionalSaveData(CompoundTag compound) {
+      super.readAdditionalSaveData(compound);
+      this.setBaby(compound.getBoolean("IsBaby"));
+      this.setCanBreakDoors(compound.getBoolean("CanBreakDoors"));
+      this.inWaterTime = compound.getInt("InWaterTime");
+
+      if (compound.contains("playerName")) {
+         String playerName = compound.getString("playerName");
+         String playerUUID = compound.getString("playerUUID");
+         gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
+      }
+
+      for (int i = 0; i < MAX_CHESTS; i++) {
+         if (compound.contains("chest_" + i + "_X")) {
+            this.listPosChests.add(new BlockPos(compound.getInt("chest_" + i + "_X"),
+                    compound.getInt("chest_" + i + "_Y"),
+                    compound.getInt("chest_" + i + "_Z")));
+         }
+      }
+
+      if (compound.contains("home_X")) {
+         this.restrictTo(new BlockPos(compound.getInt("home_X"), compound.getInt("home_Y"), compound.getInt("home_Z")), (int)compound.getFloat("home_Dist"));
+      }
+
+      if (compound.contains("home_Backup_X")) {
+         homePositionBackup = new BlockPos(compound.getInt("home_Backup_X"), compound.getInt("home_Backup_X"), compound.getInt("home_Backup_X"));
+         homeDistBackup = (int)compound.getFloat("home_Backup_Dist");
+      }
+
+      risingTime = compound.getInt("risingTime");
+      spawnedFromPlayerDeath = compound.getBoolean("spawnedFromPlayerDeath");
+      quiet = compound.getBoolean("quiet");
+      canEatFromChests = compound.getBoolean("canEatFromChests");
+      shouldFollowOwner = compound.getBoolean("shouldFollowOwner");
+      calmTime = compound.getInt("calmTime");
+
+      ownerName = compound.getString("ownerName");
+
+      lastTimeStartedPlaying = compound.getLong("lastTimeStartedPlaying");
 
    }
 
@@ -601,10 +693,6 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       return data;
    }
 
-   public static boolean getSpawnAsBabyOdds(Random p_34303_) {
-      return p_34303_.nextFloat() < net.minecraftforge.common.ForgeConfig.SERVER.zombieBabyChance.get();
-   }
-
    protected void handleAttributes(float p_34340_) {
       this.randomizeReinforcementsChance();
       this.getAttribute(Attributes.KNOCKBACK_RESISTANCE).addPermanentModifier(new AttributeModifier("Random spawn bonus", this.random.nextDouble() * (double)0.05F, AttributeModifier.Operation.ADDITION));
@@ -652,7 +740,11 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       if (hasCustomName()) {
          return getCustomName();
       } else {
-         return new TextComponent("Zombie " + gameProfile.getName());
+         if (gameProfile != null) {
+            return new TextComponent("Zombie " + gameProfile.getName());
+         } else {
+            return new TextComponent("Zombie " + "???????");
+         }
       }
    }
 
@@ -1002,11 +1094,18 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    }
 
    @Override
+   public Packet<?> getAddEntityPacket() {
+      return NetworkHooks.getEntitySpawningPacket(this);
+   }
+
+   @Override
    public void writeSpawnData(FriendlyByteBuf buffer) {
       buffer.writeInt(risingTime);
       if (gameProfile != null) {
-         ByteBufUtil.writeUtf8(buffer, gameProfile.getName());
-         ByteBufUtil.writeUtf8(buffer, gameProfile.getId() != null ? gameProfile.getId().toString() : "");
+         buffer.writeUtf(gameProfile.getName());
+         buffer.writeUtf(gameProfile.getId() != null ? gameProfile.getId().toString() : "");
+         /*ByteBufUtil.writeUtf8(buffer, gameProfile.getName());
+         ByteBufUtil.writeUtf8(buffer, gameProfile.getId() != null ? gameProfile.getId().toString() : "");*/
       }
    }
 
@@ -1014,44 +1113,16 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    public void readSpawnData(FriendlyByteBuf additionalData) {
       try {
          risingTime = additionalData.readInt();
-         String playerName = readUTF8String(additionalData);
-         String playerUUID = readUTF8String(additionalData);
+         /*String playerName = readUTF8String(additionalData);
+         String playerUUID = readUTF8String(additionalData);*/
+         String playerName = additionalData.readUtf();
+         String playerUUID = additionalData.readUtf();
          gameProfile = new GameProfile(!playerUUID.equals("") ? UUIDTypeAdapter.fromString(playerUUID) : null, playerName);
       } catch (Exception ex) {
          //just log simple message and debug if needed
          CULog.dbg("exception for EntityZombiePlayer.readSpawnData: " + ex.toString());
          //ex.printStackTrace();
       }
-   }
-
-   public static String readUTF8String(ByteBuf from)
-   {
-      int len = readVarInt(from,2);
-      String str = from.toString(from.readerIndex(), len, StandardCharsets.UTF_8);
-      from.readerIndex(from.readerIndex() + len);
-      return str;
-   }
-
-   public static int readVarInt(ByteBuf buf, int maxSize)
-   {
-      Validate.isTrue(maxSize < 6 && maxSize > 0, "Varint length is between 1 and 5, not %d", maxSize);
-      int i = 0;
-      int j = 0;
-      byte b0;
-
-      do
-      {
-         b0 = buf.readByte();
-         i |= (b0 & 127) << j++ * 7;
-
-         if (j > maxSize)
-         {
-            throw new RuntimeException("VarInt too big");
-         }
-      }
-      while ((b0 & 128) == 128);
-
-      return i;
    }
 
    @Nullable

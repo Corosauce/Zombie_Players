@@ -69,79 +69,17 @@ public class EntityAINearestAttackableTargetIfCalm<T extends LivingEntity> exten
                 else
                 {
                     //return !EntitySelector.NO_SPECTATORS.test(p_apply_1_) ? false : EntityAINearestAttackableTargetIfCalm.this.isSuitableTarget((Mob)p_apply_1_, false);
-                    return !EntitySelector.NO_SPECTATORS.test(p_apply_1_) ? false : EntityAINearestAttackableTargetIfCalm.this.isSuitableTarget2((Mob)p_apply_1_, checkSight);
+                    //return fuck off
+                    return false;//return !EntitySelector.NO_SPECTATORS.test(p_apply_1_) ? false : EntityAINearestAttackableTargetIfCalm.this.isSuitableTarget2((Mob)p_apply_1_, checkSight);
                     //return !EntitySelector.NO_SPECTATORS.test(p_apply_1_) ? false : EntityAINearestAttackableTargetIfCalm.this.test(entity, (Mob)p_apply_1_);
                 }
             }
         };
     }
 
-    public boolean test(@Nullable LivingEntity p_26886_, LivingEntity p_26887_) {
-        boolean isCombat = true;
-        if (p_26886_ == p_26887_) {
-            return false;
-        } else if (!p_26887_.canBeSeenByAnyone()) {
-            return false;
-        /*} else if (this.selector != null && !this.selector.test(p_26887_)) {
-            return false;*/
-        } else {
-            if (p_26886_ == null) {
-                if (isCombat && (!p_26887_.canBeSeenAsEnemy() || p_26887_.level.getDifficulty() == Difficulty.PEACEFUL)) {
-                    return false;
-                }
-            } else {
-                if (isCombat && (!p_26886_.canAttack(p_26887_) || !p_26886_.canAttackType(p_26887_.getType()) || p_26886_.isAlliedTo(p_26887_))) {
-                    return false;
-                }
-
-                if (this.range > 0.0D) {
-                    double d0 = this.testInvisible ? p_26887_.getVisibilityPercent(p_26886_) : 1.0D;
-                    double d1 = Math.max(this.range * d0, 2.0D);
-                    double d2 = p_26886_.distanceToSqr(p_26887_.getX(), p_26887_.getY(), p_26887_.getZ());
-                    if (d2 > d1 * d1) {
-                        return false;
-                    }
-                }
-
-                if (/*this.checkLineOfSight && */p_26886_ instanceof Mob) {
-                    Mob mob = (Mob)p_26886_;
-                    if (!mob.getSensing().hasLineOfSight(p_26887_)) {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        }
-    }
-
     public static boolean canAttackClass(Class <? extends LivingEntity > cls)
     {
         return cls != Ghast.class;
-    }
-
-    protected boolean isSuitableTarget(@Nullable LivingEntity p_75296_1_, boolean p_75296_2_) {
-        if (!isSuitableTarget(this.mob, p_75296_1_, p_75296_2_, this.shouldCheckSight)) {
-            return false;
-        } else if (!this.taskOwner.isWithinHomeDistanceFromPosition(new BlockPos(p_75296_1_))) {
-            return false;
-        } else {
-            if (this.nearbyOnly) {
-                if (--this.targetSearchDelay <= 0) {
-                    this.targetSearchStatus = 0;
-                }
-
-                if (this.targetSearchStatus == 0) {
-                    this.targetSearchStatus = this.canEasilyReach(p_75296_1_) ? 1 : 2;
-                }
-
-                if (this.targetSearchStatus == 2) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
     }
 
     public static boolean isSuitableTarget2(Mob p_179445_0_, @Nullable LivingEntity p_179445_1_, boolean p_179445_3_) {

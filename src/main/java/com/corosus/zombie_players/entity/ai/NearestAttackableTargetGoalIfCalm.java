@@ -43,6 +43,7 @@ public class NearestAttackableTargetGoalIfCalm<T extends LivingEntity> extends T
    public NearestAttackableTargetGoalIfCalm(ZombiePlayerNew p_26053_, Class<T> p_26054_, int p_26055_, boolean p_26056_, boolean p_26057_, @Nullable Predicate<LivingEntity> p_26058_, boolean attackIfHostile) {
 
       super(p_26053_, p_26056_, p_26057_);
+      this.entity = p_26053_;
       this.invert = attackIfHostile;
       this.targetType = p_26054_;
       this.randomInterval = reducedTickDelay(p_26055_);

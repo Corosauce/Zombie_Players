@@ -1,23 +1,11 @@
 modLoader="javafml"
-loaderVersion="[28,)"
+loaderVersion="[35,)"
+license="All Rights Reserved"
 [[mods]]
 modId="zombie_players"
 version="${file.jarVersion}"
 displayName="Zombie Players"
 authors="Corosus"
 description='''
-
+Brainssss
 '''
-
-[[dependencies.zombie_players]]
-    modId="forge"
-    mandatory=true
-    versionRange="[28,)"
-    ordering="NONE"
-    side="CLIENT"
-[[dependencies.zombie_players]]
-    modId="minecraft"
-    mandatory=true
-    versionRange="[1.15.2]"
-    ordering="NONE"
-    side="CLIENT"

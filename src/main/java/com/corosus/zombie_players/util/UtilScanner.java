@@ -19,7 +19,7 @@ public class UtilScanner {
         int adjustRangeY = 10;
 
         int tryX;
-        int tryY = Mth.floor(entity.posY);
+        int tryY = Mth.floor(entity.getY());
         int tryZ;
 
         for (int ii = 0; ii <= tries; ii++) {
@@ -79,7 +79,7 @@ public class UtilScanner {
         return null;
     }
 
-    public static boolean isWater(Level world, BlockPos pos) {
+    /*public static boolean isWater(Level world, BlockPos pos) {
         return world.getBlockState(pos).getMaterial().isLiquid();
     }
 
@@ -101,7 +101,7 @@ public class UtilScanner {
 
     public static boolean isFire(Level world, BlockPos pos) {
         return world.getBlockState(pos).getMaterial() == Material.FIRE;
-    }
+    }*/
 
     public static boolean isChest(Level world, BlockPos pos) {
         return world.getBlockState(pos).getBlock() instanceof ChestBlock;

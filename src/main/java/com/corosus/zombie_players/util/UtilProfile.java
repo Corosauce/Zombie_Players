@@ -1,6 +1,5 @@
 package com.corosus.zombie_players.util;
 
-import CoroUtil.forge.CULog;
 import com.corosus.coroutil.util.CULog;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
@@ -17,6 +16,8 @@ public class UtilProfile implements Runnable {
 
     private static UtilProfile instance;
     private static Thread thread;
+
+    private static GameProfile tempProfile;
 
     public static UtilProfile getInstance() {
         if (instance == null) {
@@ -114,17 +115,25 @@ public class UtilProfile implements Runnable {
             //TileEntitySkull.updateGameprofile can change name to correct casing, this would break lookup
             String originalLookupName = profile.getName();
 
+            this.tempProfile = null;
             //this does more than just get uuid, needs to run every time
-            profile = SkullBlockEntity.updateGameprofile(profile);
+            CULog.dbg("fetching profile for " + originalLookupName + " (" + profile.getName() + ")" + ", uuid: " + profile.getId());
+            SkullBlockEntity.updateGameprofile(profile, (p_155747_) -> {
+                this.tempProfile = p_155747_;
+            });
+            //keep our threaded design, working around their async, maybe redesign mine later to work in line with theirs
+            for (int timeout = 0; timeout < 50 && this.tempProfile == null; timeout++) {
+                Thread.sleep(100);
+            }
             CULog.dbg("got updated profile for " + originalLookupName + " (" + profile.getName() + ")" + ", uuid: " + profile.getId());
 
             //make sure network or cache got what it needed
-            if (profile != null) {
+            if (this.tempProfile != null) {
 
-                CachedPlayerData data = new CachedPlayerData(profile);
+                CachedPlayerData data = new CachedPlayerData(this.tempProfile);
 
                 Minecraft minecraft = Minecraft.getInstance();
-                Map<MinecraftProfileTexture.Type, MinecraftProfileTexture> map = minecraft.getSkinManager().getInsecureSkinInformation(profile);
+                Map<MinecraftProfileTexture.Type, MinecraftProfileTexture> map = minecraft.getSkinManager().getInsecureSkinInformation(this.tempProfile);
                 MinecraftProfileTexture.Type type = MinecraftProfileTexture.Type.SKIN;
                 if (map.containsKey(type)){
                     CULog.dbg("set temp data to load from gl context");
@@ -136,7 +145,9 @@ public class UtilProfile implements Runnable {
 
                 //add either way to mark it was tried
                 lookupNameToCachedData.put(originalLookupName, data);
-                lookupUUIDToCachedData.put(profile.getId(), data);
+                lookupUUIDToCachedData.put(this.tempProfile.getId(), data);
+            } else {
+                CULog.dbg("error2 getting profile texture map data for name " + originalLookupName);
             }
         } catch (Exception ex) {
             ex.printStackTrace();

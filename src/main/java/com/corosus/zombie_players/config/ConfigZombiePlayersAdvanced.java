@@ -5,8 +5,10 @@ import com.corosus.modconfig.ConfigComment;
 import com.corosus.modconfig.IConfigCategory;
 import com.corosus.zombie_players.Zombie_Players;
 import net.minecraft.core.NonNullList;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
@@ -64,7 +66,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 				//remove spaces
 				names[i] = names[i].trim();
 
-				if (names[i].contains("ore:")) {
+				/*if (names[i].contains("ore:")) {
 					String oreDictName = names[i].split(":")[1];
 					CULog.dbg("processing ore dictionary entry: " + oreDictName);
 					NonNullList<ItemStack> stacks = OreDictionary.getOres(oreDictName);
@@ -75,8 +77,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 						CULog.dbg("adding ore dict'd item: " + stack.getItem().getRegistryName());
 						Zombie_Players.listCalmingItems.add(stack.getItem());
 					}
-				} else {
-					Item item = Item.getByNameOrId(names[i]);
+				} else */{
+					Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(names[i]));
 					if (item != null) {
 						CULog.dbg("adding: " + item.getRegistryName());
 						Zombie_Players.listCalmingItems.add(item);
