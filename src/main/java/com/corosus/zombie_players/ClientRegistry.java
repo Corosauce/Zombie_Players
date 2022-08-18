@@ -1,6 +1,6 @@
 package com.corosus.zombie_players;
 
-import com.corosus.zombie_players.client.entity.ZombiePlayerRenderer;
+import com.corosus.zombie_players.client.entity.render.ZombiePlayerRendererImpl;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -13,8 +13,8 @@ public class ClientRegistry {
 
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
-    public static void registerModels(FMLClientSetupEvent event) {
-        EntityRenderers.register(EntityRegistry.zombie_player, render -> new ZombiePlayerRenderer(render));
+    public static void registerRenderers(FMLClientSetupEvent event) {
+        EntityRenderers.register(EntityRegistry.zombie_player, render -> new ZombiePlayerRendererImpl(render));
     }
 
 }
