@@ -1140,4 +1140,9 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
       return null;
    }
+
+   @Override
+   public boolean shouldShowName() {
+      return true;
+   }
 }
