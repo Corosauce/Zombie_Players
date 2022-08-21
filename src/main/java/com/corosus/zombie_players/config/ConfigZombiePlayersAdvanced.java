@@ -8,6 +8,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
@@ -31,7 +32,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
 	public static boolean onlySeekFoodIfNeeded = false;
 
-	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:fish, minecraft:beef, minecraft:chicken, minecraft:rabbit";
+	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:tropical_fish, minecraft:beef, minecraft:chicken, minecraft:rabbit, minecraft:bread";
 
 	public static int tickDelayBetweenPlaying = 20*60*60;
 
@@ -79,7 +80,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 					}
 				} else */{
 					Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(names[i]));
-					if (item != null) {
+					if (item != null && item != Items.AIR) {
 						CULog.dbg("adding: " + item.getRegistryName());
 						Zombie_Players.listCalmingItems.add(item);
 					}

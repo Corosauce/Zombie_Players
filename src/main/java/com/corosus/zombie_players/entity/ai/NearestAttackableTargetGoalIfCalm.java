@@ -4,10 +4,9 @@ import java.util.EnumSet;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.target.TargetGoal;
 import net.minecraft.world.entity.ai.targeting.TargetingConditions;
@@ -22,7 +21,7 @@ public class NearestAttackableTargetGoalIfCalm<T extends LivingEntity> extends T
    protected LivingEntity target;
    protected TargetingConditions targetConditions;
 
-   protected ZombiePlayerNew entity;
+   protected ZombiePlayer entity;
 
    //invert is calm logic
    public boolean invert = false;
@@ -40,7 +39,7 @@ public class NearestAttackableTargetGoalIfCalm<T extends LivingEntity> extends T
       this(p_26064_, p_26065_, 10, p_26066_, p_26067_, (Predicate<LivingEntity>)null);
    }*/
 
-   public NearestAttackableTargetGoalIfCalm(ZombiePlayerNew p_26053_, Class<T> p_26054_, int p_26055_, boolean p_26056_, boolean p_26057_, @Nullable Predicate<LivingEntity> p_26058_, boolean attackIfHostile) {
+   public NearestAttackableTargetGoalIfCalm(ZombiePlayer p_26053_, Class<T> p_26054_, int p_26055_, boolean p_26056_, boolean p_26057_, @Nullable Predicate<LivingEntity> p_26058_, boolean attackIfHostile) {
 
       super(p_26053_, p_26056_, p_26057_);
       this.entity = p_26053_;

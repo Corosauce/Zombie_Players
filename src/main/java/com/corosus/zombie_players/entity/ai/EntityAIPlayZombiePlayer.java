@@ -1,7 +1,7 @@
 package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.coroutil.util.CU;
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
@@ -12,12 +12,12 @@ import java.util.List;
 
 public class EntityAIPlayZombiePlayer extends Goal
 {
-    private final ZombiePlayerNew zombiePlayer;
+    private final ZombiePlayer zombiePlayer;
     private LivingEntity target;
     private final double speed;
     private int playTime;
 
-    public EntityAIPlayZombiePlayer(ZombiePlayerNew villagerIn, double speedIn)
+    public EntityAIPlayZombiePlayer(ZombiePlayer villagerIn, double speedIn)
     {
         this.zombiePlayer = villagerIn;
         this.speed = speedIn;
@@ -36,10 +36,10 @@ public class EntityAIPlayZombiePlayer extends Goal
         } else if (!zombiePlayer.canPlay()) {
             return false;
         } else {
-            List<ZombiePlayerNew> list = this.zombiePlayer.level.getEntitiesOfClass(ZombiePlayerNew.class, this.zombiePlayer.getBoundingBox().inflate(12.0D, 3.0D, 12.0D));
+            List<ZombiePlayer> list = this.zombiePlayer.level.getEntitiesOfClass(ZombiePlayer.class, this.zombiePlayer.getBoundingBox().inflate(12.0D, 3.0D, 12.0D));
             double d0 = Double.MAX_VALUE;
 
-            for (ZombiePlayerNew entityvillager : list)
+            for (ZombiePlayer entityvillager : list)
             {
                 if (entityvillager != this.zombiePlayer && !entityvillager.isPlaying())
                 {

@@ -1,6 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
@@ -10,13 +10,13 @@ import java.util.EnumSet;
 
 public class EntityAIMoveTowardsRestrictionZombie extends Goal
 {
-    private final ZombiePlayerNew creature;
+    private final ZombiePlayer creature;
     private double movePosX;
     private double movePosY;
     private double movePosZ;
     private final double movementSpeed;
 
-    public EntityAIMoveTowardsRestrictionZombie(ZombiePlayerNew creatureIn, double speedIn)
+    public EntityAIMoveTowardsRestrictionZombie(ZombiePlayer creatureIn, double speedIn)
     {
         this.creature = creatureIn;
         this.movementSpeed = speedIn;

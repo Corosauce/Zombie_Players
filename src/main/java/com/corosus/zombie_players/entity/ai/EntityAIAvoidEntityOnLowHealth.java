@@ -1,6 +1,7 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.Zombie_Players;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import com.google.common.base.Predicates;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
@@ -70,13 +71,13 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
 
         if (this.theEntity.getHealth() > healthToAvoid) return false;
 
-        if (theEntity instanceof ZombiePlayerNew && EntityAIFollowOwnerZombie.needsToTeleportToOwner((ZombiePlayerNew) theEntity)) {
+        if (theEntity instanceof ZombiePlayer && EntityAIFollowOwnerZombie.needsToTeleportToOwner((ZombiePlayer) theEntity)) {
             return false;
         }
 
         List<T> list = this.theEntity.level.getEntitiesOfClass(this.classToAvoid,
                 this.theEntity.getBoundingBox().expandTowards((double)this.avoidDistance, 3.0D, (double)this.avoidDistance),
-                EntitySelector.NO_CREATIVE_OR_SPECTATOR::test);
+                ZombiePlayer.ENEMY_PREDICATE);
 
         if (list.isEmpty())
         {

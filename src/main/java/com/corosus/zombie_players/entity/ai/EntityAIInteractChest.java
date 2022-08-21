@@ -3,7 +3,7 @@ package com.corosus.zombie_players.entity.ai;
 import com.corosus.coroutil.util.CULog;
 import com.corosus.coroutil.util.CoroUtilEntity;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import com.corosus.zombie_players.util.UtilScanner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -19,7 +19,7 @@ import java.util.EnumSet;
 
 public class EntityAIInteractChest extends Goal
 {
-    protected final ZombiePlayerNew entity;
+    protected final ZombiePlayer entity;
     protected double x;
     protected double y;
     protected double z;
@@ -30,7 +30,7 @@ public class EntityAIInteractChest extends Goal
     public int ticksChestOpen = 0;
     public int ticksChestOpenMax = 10;
 
-    public EntityAIInteractChest(ZombiePlayerNew creatureIn, double speedIn, int chance)
+    public EntityAIInteractChest(ZombiePlayer creatureIn, double speedIn, int chance)
     {
         this.entity = creatureIn;
         this.speed = speedIn;
@@ -47,9 +47,9 @@ public class EntityAIInteractChest extends Goal
     {
 
         if (!ConfigZombiePlayers.messUpChests ||
-                (entity instanceof ZombiePlayerNew && !((ZombiePlayerNew)entity).spawnedFromPlayerDeath)) return false;
+                (entity instanceof ZombiePlayer && !((ZombiePlayer)entity).spawnedFromPlayerDeath)) return false;
 
-        if (entity instanceof ZombiePlayerNew && ((ZombiePlayerNew)entity).getCalmTime() > 0) return false;
+        if (entity instanceof ZombiePlayer && ((ZombiePlayer)entity).getCalmTime() > 0) return false;
 
         if (!this.mustUpdate)
         {

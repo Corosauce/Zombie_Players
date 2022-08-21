@@ -1,6 +1,6 @@
 package com.corosus.zombie_players;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.event.RegistryEvent;
@@ -14,13 +14,13 @@ import net.minecraftforge.registries.ObjectHolder;
 public class EntityRegistry {
 
     @ObjectHolder(Zombie_Players.MODID + ":zombie_player")
-    public static EntityType<ZombiePlayerNew> zombie_player;
+    public static EntityType<ZombiePlayer> zombie_player;
 
     @SubscribeEvent
     public static void registerEntity(RegistryEvent.Register<EntityType<?>> e) {
         IForgeRegistry<EntityType<?>> r = e.getRegistry();
         r.register(
-                EntityType.Builder.of(ZombiePlayerNew::new, MobCategory.MISC)
+                EntityType.Builder.of(ZombiePlayer::new, MobCategory.MISC)
                         .setShouldReceiveVelocityUpdates(false)
                         .setUpdateInterval(3)
                         .setTrackingRange(128)
@@ -31,7 +31,7 @@ public class EntityRegistry {
 
     @SubscribeEvent
     public static void initializeAttributes(EntityAttributeCreationEvent event) {
-        event.put(zombie_player, ZombiePlayerNew.createAttributes().build());
+        event.put(zombie_player, ZombiePlayer.createAttributes().build());
     }
 
 }

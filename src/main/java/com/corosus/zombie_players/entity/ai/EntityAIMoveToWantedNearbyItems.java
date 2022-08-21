@@ -2,7 +2,7 @@ package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.coroutil.util.CU;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.item.ItemEntity;
 
@@ -11,12 +11,12 @@ import java.util.List;
 
 public class EntityAIMoveToWantedNearbyItems extends Goal
 {
-    private final ZombiePlayerNew zombiePlayer;
+    private final ZombiePlayer zombiePlayer;
     private ItemEntity target;
     private final double speed;
     private int pathTimeout;
 
-    public EntityAIMoveToWantedNearbyItems(ZombiePlayerNew villagerIn, double speedIn)
+    public EntityAIMoveToWantedNearbyItems(ZombiePlayer villagerIn, double speedIn)
     {
         this.zombiePlayer = villagerIn;
         this.speed = speedIn;

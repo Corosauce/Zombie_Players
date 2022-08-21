@@ -1,6 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -15,7 +15,7 @@ import java.util.Iterator;
 
 public class EntityAIEatToHeal extends Goal
 {
-    private final ZombiePlayerNew entityObj;
+    private final ZombiePlayer entityObj;
 
     private int walkingTimeoutMax = 20*10;
 
@@ -28,7 +28,7 @@ public class EntityAIEatToHeal extends Goal
 
     public BlockPos posCachedBestChest = null;
 
-    public EntityAIEatToHeal(ZombiePlayerNew entityObjIn)
+    public EntityAIEatToHeal(ZombiePlayer entityObjIn)
     {
         this.entityObj = entityObjIn;
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
@@ -81,8 +81,10 @@ public class EntityAIEatToHeal extends Goal
             double dist = entityObj.position().distanceTo(new Vec3(blockposGoal.getX(), blockposGoal.getY(), blockposGoal.getZ()));
             if (dist <= 3D) {
                 entityObj.openChest(posCachedBestChest);
-                consumeOneStackSizeOfFoodAtChest();
-                entityObj.ateCalmingItem(true);
+                for (int i = 0; i < 5 && entityObj.getHealth() < entityObj.getMaxHealth(); i++) {
+                    consumeOneStackSizeOfFoodAtChest();
+                    entityObj.ateCalmingItem(true);
+                }
                 entityObj.getNavigation().stop();
                 return;
             }

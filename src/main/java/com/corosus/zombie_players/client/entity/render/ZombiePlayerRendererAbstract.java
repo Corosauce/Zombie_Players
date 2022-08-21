@@ -4,23 +4,20 @@ import com.corosus.coroutil.util.CULog;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.client.entity.layer.ZombificationLayer;
 import com.corosus.zombie_players.client.entity.model.ZombiePlayerModelZombieBased;
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import com.corosus.zombie_players.util.UtilProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.PigModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
-import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
-import net.minecraft.client.renderer.entity.layers.SaddleLayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
-public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayerNew, M extends ZombiePlayerModelZombieBased<T>> extends HumanoidMobRenderer<T, M> {
+public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M extends ZombiePlayerModelZombieBased<T>> extends HumanoidMobRenderer<T, M> {
    private static final ResourceLocation ZOMBIE_LOCATION = new ResourceLocation("textures/entity/zombie/zombie.png");
 
    public static final ModelLayerLocation WAT = null;
@@ -33,7 +30,7 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayerNew, M 
       this.addLayer(new ZombificationLayer<>(this, p_173911_, new ResourceLocation(Zombie_Players.MODID,"textures/entity/zombification.png")));
    }
 
-   public ResourceLocation getTextureLocation(ZombiePlayerNew p_113771_) {
+   public ResourceLocation getTextureLocation(ZombiePlayer p_113771_) {
       UtilProfile.CachedPlayerData cache = getCachedPlayerData(p_113771_);
       if (cache != null) {
          return cache.getTexture();
@@ -42,7 +39,7 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayerNew, M 
       }
    }
 
-   public static UtilProfile.CachedPlayerData getCachedPlayerData(ZombiePlayerNew entity) {
+   public static UtilProfile.CachedPlayerData getCachedPlayerData(ZombiePlayer entity) {
       if (entity.getGameProfile() == null) {
          return null;
       }
@@ -76,6 +73,8 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayerNew, M 
    }
 
    protected boolean isShaking(T p_113773_) {
-      return super.isShaking(p_113773_) || p_113773_.isUnderWaterConverting();
+      return super.isShaking(p_113773_) || p_113773_.isUnderWaterConverting()/* || p_113773_.getCalmTime() <= p_113773_.calmTicksLow*/;
    }
+
+
 }

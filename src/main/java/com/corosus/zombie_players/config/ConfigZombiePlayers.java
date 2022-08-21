@@ -30,10 +30,10 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	//TODO: nether problem, biome white/blacklist?
 
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Minecraft profile names to use when naturally spawning in zombie players")
-	public static String Spawning_playerNamesToUse = "PhoenixfireLune, Corosus, Cojomax99, Mr_okushama, tterrag, medsouz, SirTerryWrist, MrRube";
+	public static String Spawning_playerNamesToUse = "PhoenixfireLune, Corosus, Cojomax99, Mr_okushama, tterrag, medsouz, NotActuallyTerry, MrRube";
 
 	@ConfigComment("Any player that joins your dedicated server will have their name added to the Spawning_playerNamesToUse list")
-	public static boolean automaticallyAddJoinedPlayersToNamesList = false;
+	public static boolean automaticallyAddJoinedPlayersToNamesList = true;
 
 	@ConfigComment("Use at own risk, will not support")
 	public static boolean enableAdvancedDeveloperConfigFiles = false;

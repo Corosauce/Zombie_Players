@@ -1,7 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
-import net.minecraft.client.renderer.FaceInfo;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -18,7 +17,7 @@ import java.util.EnumSet;
 
 public class EntityAIFollowOwnerZombie extends Goal
 {
-    private final ZombiePlayerNew entity;
+    private final ZombiePlayer entity;
     private LivingEntity owner;
     Level world;
     private final double followSpeed;
@@ -30,7 +29,7 @@ public class EntityAIFollowOwnerZombie extends Goal
 
     public static double TP_RANGE_SQ = 144.0D;
 
-    public EntityAIFollowOwnerZombie(ZombiePlayerNew tameableIn, double followSpeedIn, float minDistIn, float maxDistIn)
+    public EntityAIFollowOwnerZombie(ZombiePlayer tameableIn, double followSpeedIn, float minDistIn, float maxDistIn)
     {
         this.entity = tameableIn;
         this.world = tameableIn.level;
@@ -70,7 +69,7 @@ public class EntityAIFollowOwnerZombie extends Goal
         }
     }
 
-    public static boolean needsToTeleportToOwner(ZombiePlayerNew entity) {
+    public static boolean needsToTeleportToOwner(ZombiePlayer entity) {
         if (!entity.isCalm() || !entity.shouldFollowOwner) return false;
         LivingEntity entitylivingbase = (LivingEntity) entity.getOwner();
         if (entitylivingbase == null)

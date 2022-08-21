@@ -1,9 +1,6 @@
 package com.corosus.zombie_players.entity;
 
 import java.lang.ref.WeakReference;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -17,8 +14,6 @@ import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
 import com.corosus.zombie_players.entity.ai.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -42,12 +37,11 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.util.GoalUtils;
-import net.minecraft.world.entity.animal.Chicken;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
@@ -56,9 +50,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.ServerLevelAccessor;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -67,9 +59,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import net.minecraftforge.network.NetworkHooks;
-import org.apache.commons.lang3.Validate;
 
-public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity {
+public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity {
    private static final Predicate<Difficulty> DOOR_BREAKING_PREDICATE = (p_34284_) -> {
       return p_34284_ == Difficulty.HARD;
    };
@@ -111,19 +102,23 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    public int homeDistBackup = -1;
 
    public long lastTimeStartedPlaying = 0;
+   public int calmTicksVeryLow = 100;
+   public int calmTicksLow = 20 * 90;
+
+   private WorkInfo workInfo = new WorkInfo();
 
    /*public ZombiePlayerNew(EntityType<Entity> entityEntityType, Level level) {
       super((EntityType<? extends Zombie>) entityEntityType, level);
    }*/
 
-   public ZombiePlayerNew(EntityType<ZombiePlayerNew> entityEntityType, Level level) {
+   public ZombiePlayer(EntityType<ZombiePlayer> entityEntityType, Level level) {
       super(entityEntityType, level);
       ((GroundPathNavigation)getNavigation()).setCanOpenDoors(true);
    }
 
-   public static ZombiePlayerNew spawnInPlaceOfPlayer(Player player) {
+   public static ZombiePlayer spawnInPlaceOfPlayer(Player player) {
       boolean spawn = true;
-      ZombiePlayerNew zombie = null;
+      ZombiePlayer zombie = null;
       if (player.getSleepingPos().get() != null) {
          if (player.getSleepingPos().get().distSqr(new BlockPos(Mth.floor(player.getX()), Mth.floor(player.getY()), Mth.floor(player.getZ()))) <
                  ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn * ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn) {
@@ -142,8 +137,8 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       return zombie;
    }
 
-   public static ZombiePlayerNew spawnInPlaceOfPlayer(Level world, double x, double y, double z, GameProfile profile) {
-         ZombiePlayerNew zombie = new ZombiePlayerNew(EntityRegistry.zombie_player, world);
+   public static ZombiePlayer spawnInPlaceOfPlayer(Level world, double x, double y, double z, GameProfile profile) {
+         ZombiePlayer zombie = new ZombiePlayer(EntityRegistry.zombie_player, world);
          zombie.setPos(x, y, z);
          zombie.setGameProfile(profile);
          zombie.finalizeSpawn((ServerLevelAccessor) world, world.getCurrentDifficultyAt(new BlockPos(x, y, z)), MobSpawnType.NATURAL, (SpawnGroupData)null, (CompoundTag)null);
@@ -155,9 +150,11 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
    private static com.google.common.base.Predicate<Entity> VISIBLE_MOB_SELECTOR = p_apply_1_ -> !p_apply_1_.isInvisible();
 
-   public static com.google.common.base.Predicate<Entity> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null && VISIBLE_MOB_SELECTOR.apply(p_apply_1_) &&
+   public static com.google.common.base.Predicate<Entity> ENEMY_PREDICATE = p_apply_1_ -> p_apply_1_ != null &&
+           VISIBLE_MOB_SELECTOR.apply(p_apply_1_) &&
+           (p_apply_1_ instanceof Enemy) &&
            !(p_apply_1_ instanceof Creeper) &&
-           (!(p_apply_1_ instanceof ZombiePlayerNew) || (p_apply_1_ instanceof ZombiePlayerNew && ((ZombiePlayerNew) p_apply_1_).calmTime == 0 && ((ZombiePlayerNew) p_apply_1_).getTarget() != null));
+           (!(p_apply_1_ instanceof ZombiePlayer) || (p_apply_1_ instanceof ZombiePlayer && ((ZombiePlayer) p_apply_1_).calmTime == 0 && ((ZombiePlayer) p_apply_1_).getTarget() != null));
 
    /*public ZombiePlayerNew(Level p_34274_) {
       this(EntityRegistry.zombie_player, p_34274_);
@@ -194,15 +191,17 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       this.goalSelector.addGoal(taskID++, new OpenDoorGoal(this, false));
       this.goalSelector.addGoal(taskID++, new EntityAIFollowOwnerZombie(this, 1.2D, 10.0F, 2.0F));
       this.goalSelector.addGoal(taskID++, new EntityAIMoveTowardsRestrictionZombie(this, 1.0D) {});
+      this.goalSelector.addGoal(taskID++, new EntityAITrainingMode(this, 1.2D, false));
       this.goalSelector.addGoal(taskID++, new EntityAITemptZombie(this, 1.2D, false));
 
       //will this mess with calm state?
       this.goalSelector.addGoal(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
+      this.goalSelector.addGoal(taskID++, new EntityAIWorkInArea(this));
       this.goalSelector.addGoal(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
       this.goalSelector.addGoal(taskID++, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
       this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, Player.class, 8.0F));
-      this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, ZombiePlayerNew.class, 8.0F));
+      this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, ZombiePlayer.class, 8.0F));
       this.goalSelector.addGoal(taskID, new RandomLookAroundGoal(this));
 
       //this.targetSelector.addGoal(1, new EntityAIHurtByTarget(this, false, new Class[] {EntityPigZombie.class}));
@@ -277,6 +276,13 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
          if (isCalm() && itemstack.getItem() == Items.APPLE) {
             itemUsed = true;
             quiet = !quiet;
+            if (quiet) {
+               player.sendMessage(new TextComponent("Zombie Player quieted"), uuid);
+            } else {
+               player.sendMessage(new TextComponent("Zombie Player unquieted"), uuid);
+            }
+
+            setSilent(quiet);
 
             particle = ParticleTypes.NOTE;
          } else if (isCalm() && itemstack.getItem() == Items.GLASS_BOTTLE) {
@@ -284,15 +290,27 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
             this.setBaby(!this.isBaby());
 
             particle = ParticleTypes.WITCH;
+         } else if (isCalm() && itemstack.getItem() == Items.SPIDER_EYE) {
+            itemUsed = true;
+            player.sendMessage(new TextComponent("Set Zombie Player Owner to " + player.getName().getString()), uuid);
+            setOwnerName(player.getName().getString());
+
+            particle = ParticleTypes.WITCH;
          } else if (isCalm() && itemstack.getItem() == Item.BY_BLOCK.get(Blocks.CHEST)) {
             //itemUsed = true;
             this.setCanEatFromChests(!this.canEatFromChests);
+            if (this.canEatFromChests) {
+               player.sendMessage(new TextComponent("Set to eat food from chests"), uuid);
+            } else {
+               player.sendMessage(new TextComponent("Set to not eat food from chests"), uuid);
+            }
+
 
             particle = this.canEatFromChests ? ParticleTypes.HEART : ParticleTypes.WITCH;
          } else if (isCalm() && itemstack.getItem() == Items.ROTTEN_FLESH) {
             itemUsed = true;
 
-            //TODO: 1.18, pretty sure this is the correct replacement here, verify this works and drops what theyre holding
+            player.sendMessage(new TextComponent("Dropped all Equipment"), uuid);
             this.dropCustomDeathLoot(DamageSource.IN_WALL, 0, true);
             //this.dropEquipment(true, 0);
             this.clearInventory();
@@ -302,66 +320,76 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
             if (isCalm()) {
                particle = null;
                if (this.isLeashed()) {
-                  for (int i = 0; i < particleCount; i++) this.level.addParticle(DustParticleOptions.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                          0.3D, 0D, 0.3D);
+                  ((ServerLevel)this.level).sendParticles(DustParticleOptions.REDSTONE, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                   player.sendMessage(new TextComponent("Can't set home while leashed"), uuid);
                } else {
                   if (this.hasRestriction()) {
                      if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
-                        for (int i = 0; i < particleCount; i++) this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 1.0D, this.getZ(),
-                                0.3D, 0D, 0.3D);
+                        ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                         this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range2, true);
-                        player.sendMessage(new TextComponent("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range2), uuid);
+                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range2), uuid);
                      } else if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range2) {
-                        for (int i = 0; i < particleCount; i++) this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 1.5D, this.getZ(), 0.3D, 0D, 0.3D);
+                        ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                         this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range3, true);
-                        player.sendMessage(new TextComponent("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range3), uuid);
+                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range3), uuid);
                      } else if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range3) {
-                        for (int i = 0; i < particleCount; i++) this.level.addParticle(DustParticleOptions.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
+                        ((ServerLevel)this.level).sendParticles(DustParticleOptions.REDSTONE, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                         this.setHomePosAndDistance(BlockPos.ZERO, -1, true);
                         player.sendMessage(new TextComponent("Home removed"), uuid);
                      } else {
-                        for (int i = 0; i < particleCount; i++) this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                                0.3D, 0D, 0.3D);
+                        ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                         this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
-                        player.sendMessage(new TextComponent("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
+                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
                      }
 
                   } else {
-                     for (int i = 0; i < particleCount; i++) this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                             0.3D, 0D, 0.3D);
+                     ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                      this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
-                     player.sendMessage(new TextComponent("Home set with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
+                     player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
                   }
                }
 
             }
 
 
-         } else if (isRawMeat(itemstack)) {
+         } else if (isRawMeat(itemstack) && (getHealth() < getMaxHealth() || getOwner() == null)) {
             itemUsed = true;
 
             if (!hasOwner()) {
+               player.sendMessage(new TextComponent("Zombie Player Tamed"), uuid);
                setOwnerName(player.getName().getString());
+
             }
             ateCalmingItem();
 
             particle = null;
+         } else if (itemstack.getItem() == Items.DIAMOND_HOE) {
+            player.sendMessage(new TextComponent("Set work center"), uuid);
+            getWorkInfo().setPosWorkCenter(blockPosition());
+         } else if (itemstack.getItem() == Items.GOLDEN_HOE) {
+            getWorkInfo().setInTrainingMode(!getWorkInfo().isInTrainingMode());
+            if (getWorkInfo().isInTrainingMode()) {
+               player.sendMessage(new TextComponent("Training Zombie Player"), uuid);
+            } else {
+               player.sendMessage(new TextComponent("Training ended"), uuid);
+            }
+
          } else if (isCalm() && itemstack.isEmpty()) {
             shouldFollowOwner = !shouldFollowOwner;
 
             particle = this.shouldFollowOwner ? ParticleTypes.HEART : ParticleTypes.WITCH;
 
             if (shouldFollowOwner) {
+               player.sendMessage(new TextComponent("Following"), uuid);
                this.restrictTo(null, -1);
             } else {
+               player.sendMessage(new TextComponent("Wandering"), uuid);
                this.restrictTo(homePositionBackup, homeDistBackup);
             }
          }
 
          if (particle != null) {
-            for (int i = 0; i < particleCount; i++) this.level.addParticle(particle, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                    0.3D, 0D, 0.3D);
+            ((ServerLevel)this.level).sendParticles(particle, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
             level.playSound((Player)null, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_BURP, SoundSource.PLAYERS, 0.5F, level.random.nextFloat() * 0.1F + 0.9F);
          }
 
@@ -378,6 +406,8 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    public void tick() {
       if (risingTime < risingTimeMax) risingTime++;
 
+      //calmTime = this.calmTicksLow;
+
       if (!level.isClientSide()) {
          if (calmTime > 0) {
 
@@ -390,19 +420,19 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
                }
             }
 
-            if (calmTime <= 100 && calmTime % 10 == 0) {
+            if (calmTime <= this.calmTicksVeryLow && calmTime % 10 == 0) {
                this.playSound(SoundEvents.ZOMBIE_INFECT, getSoundVolume(), getVoicePitch());
-               this.level.addParticle(ParticleTypes.ANGRY_VILLAGER, true, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
-            } else if (calmTime <= 20 * 90 && calmTime % (20 * 5) == 0) {
+               ((ServerLevel)this.level).sendParticles(ParticleTypes.ANGRY_VILLAGER, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
+            } else if (calmTime <= this.calmTicksLow && calmTime % (20 * 5) == 0) {
                this.playSound(SoundEvents.ZOMBIE_VILLAGER_AMBIENT, getSoundVolume(), getVoicePitch());
-               this.level.addParticle(ParticleTypes.ANGRY_VILLAGER, true, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
+               ((ServerLevel)this.level).sendParticles(ParticleTypes.ANGRY_VILLAGER, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
             }
 
             if (isHealthLow()) {
-               this.level.addParticle(DustParticleOptions.REDSTONE, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0, 0, 0);
+               ((ServerLevel)this.level).sendParticles(DustParticleOptions.REDSTONE, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
             }
             if (isCalmTimeLow()) {
-               this.level.addParticle(ParticleTypes.WITCH, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0, 0, 0);
+               ((ServerLevel)this.level).sendParticles(ParticleTypes.WITCH, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
             }
 
             calmTime--;
@@ -457,9 +487,7 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
                double x2 = (level.random.nextDouble() - level.random.nextDouble()) * speed;
                double y2 = (level.random.nextDouble() - level.random.nextDouble()) * speed;
                double z2 = (level.random.nextDouble() - level.random.nextDouble()) * speed;
-               //level.addParticle(ParticleTypes.BLOCK_DUST, getX() + x1, getY(), getZ() + z1, x2, y2, z2, Block.getId(state));
                this.level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, state), false, getX() + x1, getY(), getZ() + z1, 0, 0, 0);
-               //((ServerLevel)this.level).sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), getX() + x1, getY(), getZ() + z1, 10, (double)(this.getBbWidth() / 4.0F), (double)(this.getBbHeight() / 4.0F), (double)(this.getBbWidth() / 4.0F), 0.05D);
             }
          }
       } else {
@@ -498,8 +526,7 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       if (!level.isClientSide() && entityIn instanceof LivingEntity) {
          if (((LivingEntity) entityIn).getHealth() <= 0 && isCalm()) {
             heal((float)ConfigZombiePlayersAdvanced.healPerKill);
-            this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(),
-                    0.3D, 0D, 0.3D);
+            ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
             level.playSound((Player)null, this.getX(), this.getY(), this.getZ(), SoundEvents.GENERIC_EAT, SoundSource.PLAYERS, 0.5F, level.random.nextFloat() * 0.1F + 0.9F);
          } else if (isCalm()) {
             heal((float)ConfigZombiePlayersAdvanced.healPerHit);
@@ -725,6 +752,14 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       return new ItemStack(Items.ZOMBIE_HEAD);
    }
 
+   public WorkInfo getWorkInfo() {
+      return workInfo;
+   }
+
+   public void setWorkInfo(WorkInfo workInfo) {
+      this.workInfo = workInfo;
+   }
+
    public static class ZombieGroupData implements SpawnGroupData {
       public final boolean isBaby;
       public final boolean canSpawnJockey;
@@ -757,14 +792,14 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
          this.getNavigation().stop();
          //cancel other AI making us target other zombie players, mainly the call for help logic from EntityAIHurtByTarget
          //also only if that other zombie player is calm too
-      } else if (calmTime > 0 && entitylivingbaseIn instanceof ZombiePlayerNew && ((ZombiePlayerNew) entitylivingbaseIn).calmTime > 0) {
+      } else if (calmTime > 0 && entitylivingbaseIn instanceof ZombiePlayer && ((ZombiePlayer) entitylivingbaseIn).calmTime > 0) {
          //super.setAttackTarget(null);
       } else {
          super.setTarget(entitylivingbaseIn);
       }
    }
 
-   /** 
+   /**
     * new methods
     * **/
 
@@ -816,7 +851,7 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
       this.heal((float) ConfigZombiePlayersAdvanced.healPerUse);
       if (effect) {
-         this.level.addParticle(ParticleTypes.HEART, false, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 0.3D, 0D, 0.3D);
+         ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
          level.playSound((Player) null, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_BURP, SoundSource.PLAYERS, 0.5F, level.random.nextFloat() * 0.1F + 0.9F);
       }
    }
@@ -868,6 +903,11 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
    public boolean canBeLeashed(Player player)
    {
       return !this.isLeashed();
+   }
+
+   @Override
+   public Vec3 getLeashOffset() {
+      return new Vec3(0.0D, (double)this.getEyeHeight() / 1.5, -(double)(this.getBbWidth() * 0.3F));
    }
 
    public int getCalmTime() {
@@ -931,9 +971,9 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
          return;
       }
 
-      List<ZombiePlayerNew> listEnts = level.getEntitiesOfClass(ZombiePlayerNew.class, new AABB(this.blockPosition()).inflate(20, 20, 20));
+      List<ZombiePlayer> listEnts = level.getEntitiesOfClass(ZombiePlayer.class, new AABB(this.blockPosition()).inflate(20, 20, 20));
       Collections.shuffle(listEnts);
-      for (ZombiePlayerNew ent : listEnts) {
+      for (ZombiePlayer ent : listEnts) {
          if (!ent.isCalm()) {
             continue;
          }
@@ -1015,6 +1055,8 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
 
    public void setOwnerName(String name) {
       this.ownerName = name;
+      setPersistenceRequired();
+      this.setTarget(null);
    }
 
    public Player getPlayer() {
@@ -1132,7 +1174,7 @@ public class ZombiePlayerNew extends Zombie implements IEntityAdditionalSpawnDat
       {
          Player entityplayer = this.level.players().get(j2);
 
-         if (name.equals(entityplayer.getName()))
+         if (name.equals(entityplayer.getName().getString()))
          {
             return entityplayer;
          }

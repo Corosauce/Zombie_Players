@@ -1,18 +1,15 @@
 package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.coroutil.util.CU;
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import com.google.common.base.Predicate;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.target.TargetGoal;
 import net.minecraft.world.entity.monster.Ghast;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 
 import javax.annotation.Nullable;
@@ -30,22 +27,22 @@ public class EntityAINearestAttackableTargetIfCalm<T extends LivingEntity> exten
     protected final Predicate <? super T > targetEntitySelector;
     protected T targetEntity;
 
-    protected ZombiePlayerNew entity;
+    protected ZombiePlayer entity;
 
     //invert is calm logic
     public boolean invert = false;
 
-    public EntityAINearestAttackableTargetIfCalm(ZombiePlayerNew creature, Class<T> classTarget, boolean checkSight, boolean attackIfHostile)
+    public EntityAINearestAttackableTargetIfCalm(ZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean attackIfHostile)
     {
         this(creature, classTarget, checkSight, false, attackIfHostile);
     }
 
-    public EntityAINearestAttackableTargetIfCalm(ZombiePlayerNew creature, Class<T> classTarget, boolean checkSight, boolean onlyNearby, boolean attackIfHostile)
+    public EntityAINearestAttackableTargetIfCalm(ZombiePlayer creature, Class<T> classTarget, boolean checkSight, boolean onlyNearby, boolean attackIfHostile)
     {
         this(creature, classTarget, 10, checkSight, onlyNearby, (Predicate)null, attackIfHostile);
     }
 
-    public EntityAINearestAttackableTargetIfCalm(ZombiePlayerNew creature, Class<T> classTarget, int chance, boolean checkSight, boolean onlyNearby, @Nullable final Predicate <? super T > targetSelector, boolean attackIfHostile)
+    public EntityAINearestAttackableTargetIfCalm(ZombiePlayer creature, Class<T> classTarget, int chance, boolean checkSight, boolean onlyNearby, @Nullable final Predicate <? super T > targetSelector, boolean attackIfHostile)
     {
         super(creature, checkSight, onlyNearby);
         this.invert = attackIfHostile;

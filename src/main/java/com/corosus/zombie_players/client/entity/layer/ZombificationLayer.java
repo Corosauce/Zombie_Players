@@ -1,25 +1,19 @@
 package com.corosus.zombie_players.client.entity.layer;
 
-import com.corosus.zombie_players.entity.ZombiePlayerNew;
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.Saddleable;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import org.lwjgl.opengl.GL11;
 
 @OnlyIn(Dist.CLIENT)
-public class ZombificationLayer<T extends ZombiePlayerNew, M extends EntityModel<T>> extends RenderLayer<T, M> {
+public class ZombificationLayer<T extends ZombiePlayer, M extends EntityModel<T>> extends RenderLayer<T, M> {
    private final ResourceLocation textureLocation;
    private final M model;
 
