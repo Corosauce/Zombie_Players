@@ -2,6 +2,7 @@ package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.zombie_players.entity.EnumTrainType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -11,8 +12,9 @@ public class WorkInfo {
 
     private BlockState stateWorkLastObserved = Blocks.AIR.defaultBlockState();
 
-    //0 = left, 1 = right
     private EnumTrainType workClickLastObserved = EnumTrainType.BLOCK_LEFT_CLICK;
+
+    private Direction workClickDirectionLastObserved = Direction.UP;
 
     private boolean inTrainingMode = false;
 
@@ -46,5 +48,13 @@ public class WorkInfo {
 
     public void setInTrainingMode(boolean inTrainingMode) {
         this.inTrainingMode = inTrainingMode;
+    }
+
+    public Direction getWorkClickDirectionLastObserved() {
+        return workClickDirectionLastObserved;
+    }
+
+    public void setWorkClickDirectionLastObserved(Direction workClickDirectionLastObserved) {
+        this.workClickDirectionLastObserved = workClickDirectionLastObserved;
     }
 }

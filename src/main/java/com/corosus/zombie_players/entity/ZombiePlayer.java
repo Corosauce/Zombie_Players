@@ -15,11 +15,13 @@ import com.corosus.zombie_players.entity.ai.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.util.UUIDTypeAdapter;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
@@ -183,6 +185,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       //this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));*/
 
       this.goalSelector.addGoal(taskID++, new FloatGoal(this));
+      this.goalSelector.addGoal(taskID++, new EntityAITemptZombie(this, 1.2D, false));
       this.goalSelector.addGoal(taskID++, new EntityAIAvoidEntityOnLowHealth(this, LivingEntity.class, ENEMY_PREDICATE,
               16.0F, 1.4D, 1.4D, 10F));
       this.goalSelector.addGoal(taskID++, new EntityAIEatToHeal(this));
@@ -192,7 +195,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.goalSelector.addGoal(taskID++, new EntityAIFollowOwnerZombie(this, 1.2D, 10.0F, 2.0F));
       this.goalSelector.addGoal(taskID++, new EntityAIMoveTowardsRestrictionZombie(this, 1.0D) {});
       this.goalSelector.addGoal(taskID++, new EntityAITrainingMode(this, 1.2D, false));
-      this.goalSelector.addGoal(taskID++, new EntityAITemptZombie(this, 1.2D, false));
 
       //will this mess with calm state?
       this.goalSelector.addGoal(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
@@ -614,6 +616,16 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putString("ownerName", ownerName);
 
       compound.putLong("lastTimeStartedPlaying", lastTimeStartedPlaying);
+
+      compound.putInt("work_center_X", getWorkInfo().getPosWorkCenter().getX());
+      compound.putInt("work_center_Y", getWorkInfo().getPosWorkCenter().getY());
+      compound.putInt("work_center_Z", getWorkInfo().getPosWorkCenter().getZ());
+
+      compound.put("work_blockstate", NbtUtils.writeBlockState(getWorkInfo().getStateWorkLastObserved()));
+
+      compound.putString("work_direction", getWorkInfo().getWorkClickDirectionLastObserved().getName());
+
+      compound.putInt("work_click", getWorkInfo().getWorkClickLastObserved().ordinal());
    }
 
    public void readAdditionalSaveData(CompoundTag compound) {
@@ -655,6 +667,16 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       ownerName = compound.getString("ownerName");
 
       lastTimeStartedPlaying = compound.getLong("lastTimeStartedPlaying");
+
+      if (compound.contains("work_center_X")) {
+         getWorkInfo().setPosWorkCenter(new BlockPos(compound.getInt("work_center_X"), compound.getInt("work_center_Y"), compound.getInt("work_center_Z")));
+      }
+
+      if (compound.contains("work_blockstate")) getWorkInfo().setStateWorkLastObserved(NbtUtils.readBlockState(compound.getCompound("work_blockstate")));
+
+      if (compound.contains("work_direction")) getWorkInfo().setWorkClickDirectionLastObserved(Direction.byName(compound.getString("work_direction")));
+
+      if (compound.contains("work_click")) getWorkInfo().setWorkClickLastObserved(EnumTrainType.get(compound.getInt("work_click")));
 
    }
 
@@ -1186,5 +1208,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    @Override
    public boolean shouldShowName() {
       return true;
+   }
+
+   @Override
+   protected boolean shouldDespawnInPeaceful() {
+      return !isCalm();
    }
 }

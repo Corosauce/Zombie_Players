@@ -47,9 +47,9 @@ public class EntityAIInteractChest extends Goal
     {
 
         if (!ConfigZombiePlayers.messUpChests ||
-                (entity instanceof ZombiePlayer && !((ZombiePlayer)entity).spawnedFromPlayerDeath)) return false;
+                (!(entity).spawnedFromPlayerDeath)) return false;
 
-        if (entity instanceof ZombiePlayer && ((ZombiePlayer)entity).getCalmTime() > 0) return false;
+        if (entity.isCalm()) return false;
 
         if (!this.mustUpdate)
         {
