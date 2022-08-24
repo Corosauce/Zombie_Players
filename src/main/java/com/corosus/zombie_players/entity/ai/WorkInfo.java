@@ -8,6 +8,8 @@ import net.minecraft.world.level.block.state.BlockState;
 
 public class WorkInfo {
 
+    private boolean performWork = false;
+
     private BlockPos posWorkCenter = BlockPos.ZERO;
 
     private BlockState stateWorkLastObserved = Blocks.AIR.defaultBlockState();
@@ -56,5 +58,13 @@ public class WorkInfo {
 
     public void setWorkClickDirectionLastObserved(Direction workClickDirectionLastObserved) {
         this.workClickDirectionLastObserved = workClickDirectionLastObserved;
+    }
+
+    public boolean isPerformingWork() {
+        return performWork;
+    }
+
+    public void setPerformWork(boolean performWork) {
+        this.performWork = performWork;
     }
 }

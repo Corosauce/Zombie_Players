@@ -1,5 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
+import com.corosus.coroutil.util.CU;
 import com.corosus.coroutil.util.CULog;
 import com.corosus.coroutil.util.CoroUtilEntity;
 import com.corosus.zombie_players.config.ConfigZombiePlayersAdvanced;
@@ -19,31 +20,17 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.server.ServerLifecycleHooks;
 
 import java.util.*;
 
@@ -70,13 +57,14 @@ public class EntityAIWorkInArea extends Goal
 
     //private BlockPos posWorkCenter = BlockPos.ZERO;
 
-    private long scanCooldownAmount = 10;
+    private long scanCooldownAmount = 5;
     private long scanNextTickWork = 0;
 
     private long jobCompleteCooldown = 0;
     private long jobCompleteCooldownValue = 100;
 
     private int curScanRange = 3;
+    private int curAngle = 0;
 
     /**
      * need to likely target only specific states to match, so we need a basic mapping of state to lookup depending on the type of block, maybe tag to states
@@ -184,6 +172,9 @@ public class EntityAIWorkInArea extends Goal
     @Override
     public boolean canUse()
     {
+
+        //if (true) return false;
+
         //posCurrentWorkTarget = BlockPos.ZERO;
         if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
         return canWorkOrFindWork();
@@ -207,13 +198,27 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public BlockPos findWorkBlockPosRadial() {
-        int range = curScanRange;
         //CULog.dbg("scan range: " + range);
         int lastX = 0;
         int lastZ = 0;
-        for (int angle = 0; angle < 360; angle+=1) {
-            int x = (int) (-Mth.sin(angle * Mth.DEG_TO_RAD) * range);
-            int z = (int) (Mth.cos(angle * Mth.DEG_TO_RAD) * range);
+
+        if (curAngle >= 360) {
+            curAngle = 0;
+
+            curScanRange++;
+            if (curScanRange > getWorkDistance()) {
+                curScanRange = 2;
+            }
+        }
+
+        int range = curScanRange;
+
+        //for (int angle = 0; angle < 360; angle+=1) {
+        boolean looked = false;
+        for (int angleTicks = 0; angleTicks < 90; angleTicks+=1) {
+            curAngle += 1;
+            int x = Mth.floor(-Mth.sin(curAngle * Mth.DEG_TO_RAD) * range);
+            int z = Mth.floor(Mth.cos(curAngle * Mth.DEG_TO_RAD) * range);
 
             if (lastX == x && lastZ == z) continue;
 
@@ -227,6 +232,14 @@ public class EntityAIWorkInArea extends Goal
 
                 //BlockPos pos = this.entityObj.getWorkInfo().getPosWorkCenter().offset(x, y, z);
                 BlockPos pos = this.entityObj.blockPosition().offset(x, y, z);
+
+                if (!looked) {
+                    looked = true;
+                    if (CU.random.nextInt(5) == 0) {
+                        entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(pos.getX() + 0.5, this.entityObj.blockPosition().getY(), pos.getZ() + 0.5));
+                    }
+                }
+
                 //((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
                 //CULog.dbg("probe: " + pos);
                 if (isValidWorkBlock(pos)) {
@@ -241,10 +254,6 @@ public class EntityAIWorkInArea extends Goal
                     }
                 }
             }
-        }
-        curScanRange++;
-        if (curScanRange > getWorkDistance()) {
-            curScanRange = 2;
         }
         return BlockPos.ZERO;
     }
@@ -557,7 +566,9 @@ public class EntityAIWorkInArea extends Goal
             BlockInfo info = getBlockInfo(state);
             if (info != null) {
                 if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_NORMAL) {
-                    entityObj.level.destroyBlock(pos, true);
+                    if (entityObj.level.getBlockState(pos).getDestroySpeed(entityObj.level, pos) >= 0) {
+                        entityObj.level.destroyBlock(pos, true);
+                    }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.HARVEST) {
                     FakePlayer fakePlayer = FakePlayerFactory.get((ServerLevel) entityObj.level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
                     if (!UtilCrops.harvestAndReplant(entityObj.level, pos, state, fakePlayer)) {
@@ -581,7 +592,9 @@ public class EntityAIWorkInArea extends Goal
             } else {
                 //CULog.dbg("error no info on blockstate: " + state);
 
-                //entityObj.level.destroyBlock(pos, true);
+                if (entityObj.level.getBlockState(pos).getDestroySpeed(entityObj.level, pos) >= 0) {
+                    entityObj.level.destroyBlock(pos, true);
+                }
 
             }
         }
@@ -590,6 +603,7 @@ public class EntityAIWorkInArea extends Goal
         entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
 
         jobCompleteCooldown = entityObj.level.getGameTime() + jobCompleteCooldownValue;
+        jobCompleteCooldown = entityObj.level.getGameTime() + 30;
 
         return true;
     }

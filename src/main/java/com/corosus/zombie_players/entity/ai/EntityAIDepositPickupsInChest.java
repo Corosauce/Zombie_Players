@@ -1,8 +1,10 @@
 package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.zombie_players.entity.ZombiePlayer;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.item.ItemStack;
@@ -11,9 +13,8 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
-import java.util.Iterator;
 
-public class EntityAIEatToHeal extends Goal
+public class EntityAIDepositPickupsInChest extends Goal
 {
     private final ZombiePlayer entityObj;
 
@@ -24,11 +25,9 @@ public class EntityAIEatToHeal extends Goal
 
     private int lookUpdateTimer = 0;
 
-    private float missingHealthToHeal = 5;
-
     public BlockPos posCachedBestChest = null;
 
-    public EntityAIEatToHeal(ZombiePlayer entityObjIn)
+    public EntityAIDepositPickupsInChest(ZombiePlayer entityObjIn)
     {
         this.entityObj = entityObjIn;
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
@@ -40,12 +39,11 @@ public class EntityAIEatToHeal extends Goal
     @Override
     public boolean canUse()
     {
-        if (entityObj.isFoodNeedUrgent()/*entityObj.getHealth() < entityObj.getMaxHealth() - missingHealthToHeal*/) {
-            posCachedBestChest = getClosestChestPosWithFood();
-            return posCachedBestChest != null;//hasFoodSource();
-        } else {
-            return false;
+        if (entityObj.hasAnyItemsInExtra() && entityObj.hasChestToUse()) {
+            posCachedBestChest = entityObj.getClosestChestPosWithSpace();
+            return posCachedBestChest != null;
         }
+        return false;
     }
 
     /**
@@ -54,7 +52,7 @@ public class EntityAIEatToHeal extends Goal
     @Override
     public boolean canContinueToUse()
     {
-        return entityObj.isFoodNeedUrgent() && verifyOrGetNewChest();
+        return entityObj.hasAnyItemsInExtra() && verifyOrGetNewChest();
     }
 
     @Override
@@ -81,10 +79,11 @@ public class EntityAIEatToHeal extends Goal
             double dist = entityObj.position().distanceTo(new Vec3(blockposGoal.getX(), blockposGoal.getY(), blockposGoal.getZ()));
             if (dist <= 3D) {
                 entityObj.openChest(posCachedBestChest);
-                for (int i = 0; i < 5 && (entityObj.getHealth() < entityObj.getMaxHealth() || entityObj.isCalmTimeLow()); i++) {
-                    consumeOneStackSizeOfFoodAtChest();
-                    entityObj.ateCalmingItem(true);
-                }
+
+                entityObj.ejectItems(posCachedBestChest);
+                entityObj.swing(InteractionHand.MAIN_HAND);
+                entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(posCachedBestChest.getX() + 0.5, posCachedBestChest.getY() + 0.5, posCachedBestChest.getZ() + 0.5));
+
                 entityObj.getNavigation().stop();
                 return;
             }
@@ -156,63 +155,10 @@ public class EntityAIEatToHeal extends Goal
         walkingTimeout = 0;
     }
 
-    public BlockPos getClosestChestPosWithFood() {
-        Iterator<BlockPos> it = entityObj.listPosChests.iterator();
-        double closestDist = Double.MAX_VALUE;
-        BlockPos closestPos = null;
-        while (it.hasNext()) {
-            BlockPos pos = it.next();
-            if (entityObj.isValidChestForFood(pos, false)) {
-                double dist = entityObj.blockPosition().distSqr(pos);
-
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closestPos = pos;
-                }
-            }
-        }
-
-        return closestPos;
-    }
-
-    public ItemStack consumeOneStackSizeOfFoodAtChest() {
-        if (posCachedBestChest != null) {
-            BlockEntity tile = entityObj.level.getBlockEntity(posCachedBestChest);
-            if (tile instanceof ChestBlockEntity) {
-                ChestBlockEntity chest = (ChestBlockEntity) tile;
-
-                return consumeOneStackSizeOfFood(chest);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Return a snapshot of what its consuming incase we want to scale healing based on item/amount
-     *
-     * @param inv
-     * @return
-     */
-    public ItemStack consumeOneStackSizeOfFood(Container inv) {
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (!stack.isEmpty() && stack.getCount() > 0) {
-                if (entityObj.isRawMeat(stack)) {
-                    stack.shrink(1);
-                    if (stack.getCount() <= 0) {
-                        inv.setItem(i, ItemStack.EMPTY);
-                    }
-                    return new ItemStack(stack.getItem(), 1, stack.getTag());
-                }
-            }
-        }
-        return null;
-    }
-
     public boolean verifyOrGetNewChest() {
         if (posCachedBestChest == null) return false;
-        if (!entityObj.isValidChestForFood(posCachedBestChest, false)) {
-            posCachedBestChest = getClosestChestPosWithFood();
+        if (!entityObj.isValidChestForWork(posCachedBestChest, false)) {
+            posCachedBestChest = entityObj.getClosestChestPosWithSpace();
         }
         return posCachedBestChest != null;
     }

@@ -3,6 +3,7 @@ package com.corosus.zombie_players.entity;
 import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 
 import com.corosus.coroutil.util.CULog;
@@ -21,6 +22,7 @@ import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -56,66 +58,48 @@ import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import net.minecraftforge.network.NetworkHooks;
 
-public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity {
+public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity, ContainerListener {
    private static final Predicate<Difficulty> DOOR_BREAKING_PREDICATE = (p_34284_) -> {
       return p_34284_ == Difficulty.HARD;
    };
    private final BreakDoorGoal breakDoorGoal = new BreakDoorGoal(this, DOOR_BREAKING_PREDICATE);
    private boolean canBreakDoors;
    private int inWaterTime;
-   private int conversionTime;
-
-
-
    public boolean spawnedFromPlayerDeath = false;
-
    public GameProfile gameProfile;
-
    public int risingTime = -20;
    public int risingTimeMax = 40;
-
    public boolean quiet = false;
-
    public boolean canEatFromChests = false;
-
    public boolean shouldFollowOwner = false;
-
    private boolean isPlaying;
-
    private int calmTime = 0;
-
    public List<BlockPos> listPosChests = new ArrayList<>();
    public static int MAX_CHESTS = 4;
-
    public String ownerName = "";
    public WeakReference<Player> playerWeakReference = new WeakReference<>(null);
-
    public boolean hasOpenedChest = false;
    public BlockPos posChestUsing = null;
    public int chestUseTime = 0;
-
    public BlockPos homePositionBackup = null;
    public int homeDistBackup = -1;
-
    public long lastTimeStartedPlaying = 0;
    public int calmTicksVeryLow = 100;
    public int calmTicksLow = 20 * 90;
-
+   protected SimpleContainer inventory;
    private WorkInfo workInfo = new WorkInfo();
-
-   /*public ZombiePlayerNew(EntityType<Entity> entityEntityType, Level level) {
-      super((EntityType<? extends Zombie>) entityEntityType, level);
-   }*/
 
    public ZombiePlayer(EntityType<ZombiePlayer> entityEntityType, Level level) {
       super(entityEntityType, level);
       ((GroundPathNavigation)getNavigation()).setCanOpenDoors(true);
+      this.createInventory();
    }
 
    public static ZombiePlayer spawnInPlaceOfPlayer(Player player) {
@@ -196,9 +180,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.goalSelector.addGoal(taskID++, new EntityAIMoveTowardsRestrictionZombie(this, 1.0D) {});
       this.goalSelector.addGoal(taskID++, new EntityAITrainingMode(this, 1.2D, false));
 
-      //will this mess with calm state?
       this.goalSelector.addGoal(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
       this.goalSelector.addGoal(taskID++, new EntityAIWorkInArea(this));
+      this.goalSelector.addGoal(taskID++, new EntityAIMoveToWantedNearbyItemsForWork(this, 1.0D));
+      this.goalSelector.addGoal(taskID++, new EntityAIDepositPickupsInChest(this));
       this.goalSelector.addGoal(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
       this.goalSelector.addGoal(taskID++, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
@@ -354,7 +339,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             }
 
 
-         } else if (isRawMeat(itemstack) && (getHealth() < getMaxHealth() || getOwner() == null)) {
+         } else if (isRawMeat(itemstack) && (getHealth() < getMaxHealth() || getOwner() == null || isCalmTimeLow())) {
             itemUsed = true;
 
             if (!hasOwner()) {
@@ -371,9 +356,17 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          } else if (itemstack.getItem() == Items.GOLDEN_HOE) {
             getWorkInfo().setInTrainingMode(!getWorkInfo().isInTrainingMode());
             if (getWorkInfo().isInTrainingMode()) {
+               getWorkInfo().setStateWorkLastObserved(Blocks.AIR.defaultBlockState());
                player.sendMessage(new TextComponent("Training Zombie Player"), uuid);
             } else {
-               player.sendMessage(new TextComponent("Training ended"), uuid);
+               if (getWorkInfo().getStateWorkLastObserved().isAir()) {
+                  player.sendMessage(new TextComponent("Training ended, no work set"), uuid);
+                  getWorkInfo().setPerformWork(false);
+               } else {
+                  player.sendMessage(new TextComponent("Training ended, work starting"), uuid);
+                  getWorkInfo().setPerformWork(true);
+               }
+
             }
 
          } else if (isCalm() && itemstack.isEmpty()) {
@@ -421,6 +414,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   }
                }
             }
+
+            //getWorkInfo().setPerformWork(true);
 
             if (calmTime <= this.calmTicksVeryLow && calmTime % 10 == 0) {
                this.playSound(SoundEvents.ZOMBIE_INFECT, getSoundVolume(), getVoicePitch());
@@ -497,10 +492,152 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       }
 
       super.tick();
+
+      //run after super to let vanilla equipment and armor grabbing go first
+      if (!level.isClientSide()) {
+         if (calmTime > 0) {
+            //pickup other items when in work mode
+            if (isCalm() && getWorkInfo().isPerformingWork() && this.isAlive() && !this.dead) {
+               for (ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
+                  if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()/* && this.wantsToPickUp(itementity.getItem())*/) {
+                     //inverting this so that Mob.java can equip armor, and our above code can eat food, and this will handle everything else
+                     //if (!this.wantsToPickUp(itementity.getItem())) {
+                        this.pickUpItemForExtraInventory(itementity);
+                     //}
+                  }
+               }
+            }
+         }
+      }
+   }
+
+   protected void pickUpItemForExtraInventory(ItemEntity p_35467_) {
+      ItemStack itemstack = p_35467_.getItem();
+      //if (this.wantsToPickUp(itemstack)) {
+         SimpleContainer simplecontainer = this.getInventory();
+         boolean flag = simplecontainer.canAddItem(itemstack);
+         if (!flag) {
+            return;
+         }
+
+         this.onItemPickup(p_35467_);
+         this.take(p_35467_, itemstack.getCount());
+         ItemStack itemstack1 = simplecontainer.addItem(itemstack);
+         if (itemstack1.isEmpty()) {
+            p_35467_.discard();
+         } else {
+            itemstack.setCount(itemstack1.getCount());
+         }
+      //}
+
+   }
+
+   public boolean hasAnyItemsInExtra() {
+      for(int i = 0; i < this.inventory.getContainerSize(); ++i) {
+         ItemStack itemstack = this.inventory.getItem(i);
+         if (!itemstack.isEmpty()) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   public boolean hasChestToUse() {
+      return listPosChests.size() > 0;
+   }
+
+   public BlockPos getClosestChestPosWithSpace() {
+      Iterator<BlockPos> it = listPosChests.iterator();
+      double closestDist = Double.MAX_VALUE;
+      BlockPos closestPos = null;
+      while (it.hasNext()) {
+         BlockPos pos = it.next();
+         if (isValidChestForWork(pos, false)) {
+            double dist = blockPosition().distSqr(pos);
+
+            if (dist < closestDist) {
+               closestDist = dist;
+               closestPos = pos;
+            }
+         }
+      }
+
+      return closestPos;
+   }
+
+   /**
+    * Checks for any empty or partially full slots, doesnt make sure you can actually deposit into it with whatever
+    *
+    * @param pos
+    * @return
+    */
+   public boolean chestHasRoom(BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
+         Container inv = (Container) tile;
+         for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (stack.isEmpty() || stack.getCount() < stack.getMaxStackSize()) {
+               return true;
+            }
+         }
+      }
+      return false;
+   }
+
+   public Container getChest(BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
+         return (Container) tile;
+      }
+      return null;
+   }
+
+   public boolean ejectItems(BlockPos pos) {
+      Container container = getChest(pos);
+      if (container == null) {
+         return false;
+      } else {
+         Direction direction = Direction.UP;
+         if (isFullContainer(container, direction)) {
+            return false;
+         } else {
+            for(int i = 0; i < getInventory().getContainerSize(); ++i) {
+               if (!getInventory().getItem(i).isEmpty()) {
+                  ItemStack itemstack = getInventory().getItem(i).copy();
+                  ItemStack itemstack1 = HopperBlockEntity.addItem(getInventory(), container, getInventory().removeItem(i, 1), direction);
+                  if (itemstack1.isEmpty()) {
+                     container.setChanged();
+                     return true;
+                  }
+
+                  getInventory().setItem(i, itemstack);
+               }
+            }
+
+            return false;
+         }
+      }
+   }
+
+   private static boolean isFullContainer(Container p_59386_, Direction p_59387_) {
+      return getSlots(p_59386_, p_59387_).allMatch((p_59379_) -> {
+         ItemStack itemstack = p_59386_.getItem(p_59379_);
+         return itemstack.getCount() >= itemstack.getMaxStackSize();
+      });
+   }
+
+   private static IntStream getSlots(Container p_59340_, Direction p_59341_) {
+      return p_59340_ instanceof WorldlyContainer ? IntStream.of(((WorldlyContainer)p_59340_).getSlotsForFace(p_59341_)) : IntStream.range(0, p_59340_.getContainerSize());
+   }
+
+
+   public SimpleContainer getInventory() {
+      return this.inventory;
    }
 
    public void aiStep() {
-      if (isCalm() && isCanEatFromChests()) {
+      if (isCalm()/* && (isCanEatFromChests() || workInfo.isPerformingWork())*/) {
          tickScanForChests();
       }
 
@@ -626,6 +763,22 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putString("work_direction", getWorkInfo().getWorkClickDirectionLastObserved().getName());
 
       compound.putInt("work_click", getWorkInfo().getWorkClickLastObserved().ordinal());
+
+      compound.putBoolean("work_active", getWorkInfo().isPerformingWork());
+
+      ListTag listtag = new ListTag();
+
+      for(int i = 2; i < this.inventory.getContainerSize(); ++i) {
+         ItemStack itemstack = this.inventory.getItem(i);
+         if (!itemstack.isEmpty()) {
+            CompoundTag compoundtag = new CompoundTag();
+            compoundtag.putByte("Slot", (byte)i);
+            itemstack.save(compoundtag);
+            listtag.add(compoundtag);
+         }
+      }
+
+      compound.put("Items", listtag);
    }
 
    public void readAdditionalSaveData(CompoundTag compound) {
@@ -677,6 +830,19 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       if (compound.contains("work_direction")) getWorkInfo().setWorkClickDirectionLastObserved(Direction.byName(compound.getString("work_direction")));
 
       if (compound.contains("work_click")) getWorkInfo().setWorkClickLastObserved(EnumTrainType.get(compound.getInt("work_click")));
+
+      if (compound.contains("work_active")) getWorkInfo().setPerformWork(compound.getBoolean("work_active"));
+
+      this.createInventory();
+      ListTag listtag = compound.getList("Items", 10);
+
+      for(int i = 0; i < listtag.size(); ++i) {
+         CompoundTag compoundtag = listtag.getCompound(i);
+         int j = compoundtag.getByte("Slot") & 255;
+         if (j >= 2 && j < this.inventory.getContainerSize()) {
+            this.inventory.setItem(j, ItemStack.of(compoundtag));
+         }
+      }
 
    }
 
@@ -972,8 +1138,12 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       return false;
    }
 
-   public boolean isValidChest(BlockPos pos, boolean sightCheck) {
+   public boolean isValidChestForFood(BlockPos pos, boolean sightCheck) {
       return isWithinRestriction(pos) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
+   }
+
+   public boolean isValidChestForWork(BlockPos pos, boolean sightCheck) {
+      return isWithinRestriction(pos) && chestHasRoom(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
    }
 
    public void tickScanForChests() {
@@ -984,7 +1154,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       Iterator<BlockPos> it = listPosChests.iterator();
       while (it.hasNext()) {
          BlockPos pos = it.next();
-         if (!isValidChest(pos, false)) {
+         if (!isValidChestForFood(pos, false)) {
             it.remove();
          }
       }
@@ -1010,7 +1180,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          while (it2.hasNext()) {
             BlockPos pos = it2.next();
 
-            if (!hasChestAlready(pos) && isValidChest(pos, true)) {
+            if (!hasChestAlready(pos) && isValidChestForFood(pos, true)) {
                addChestPos(pos);
             }
 
@@ -1025,7 +1195,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          for (int y = -range/2; y <= range/2; y++) {
             for (int z = -range; z <= range; z++) {
                BlockPos pos = this.blockPosition().offset(x, y, z);
-               if (isValidChest(pos, true)) {
+               if (isValidChestForFood(pos, true) || isValidChestForWork(pos, true)) {
                   if (!hasChestAlready(pos)) {
                      addChestPos(pos);
                   }
@@ -1103,7 +1273,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public void openChest(BlockPos pos) {
-      CULog.dbg("open chest");
+      //CULog.dbg("open chest");
       hasOpenedChest = true;
       //keep higher than EntityAIInteractChest.ticksChestOpenMax to avoid bugging it out until i merge code better
       chestUseTime = 15;
@@ -1118,7 +1288,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public void closeChest(BlockPos pos) {
-      CULog.dbg("close chest");
+      //CULog.dbg("close chest");
       hasOpenedChest = false;
       BlockEntity tEnt = level.getBlockEntity(pos);
       if (tEnt instanceof ChestBlockEntity) {
@@ -1213,5 +1383,68 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    @Override
    protected boolean shouldDespawnInPeaceful() {
       return !isCalm();
+   }
+
+   private net.minecraftforge.common.util.LazyOptional<?> itemHandler = null;
+
+   @Override
+   public <T> net.minecraftforge.common.util.LazyOptional<T> getCapability(net.minecraftforge.common.capabilities.Capability<T> capability, @Nullable net.minecraft.core.Direction facing) {
+      if (this.isAlive() && capability == net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY && itemHandler != null)
+         return itemHandler.cast();
+      return super.getCapability(capability, facing);
+   }
+
+   @Override
+   public void invalidateCaps() {
+      super.invalidateCaps();
+      if (itemHandler != null) {
+         net.minecraftforge.common.util.LazyOptional<?> oldHandler = itemHandler;
+         itemHandler = null;
+         oldHandler.invalidate();
+      }
+   }
+
+   public boolean hasInventoryChanged(Container p_149512_) {
+      return this.inventory != p_149512_;
+   }
+
+   protected int getInventorySize() {
+      return 9*3;
+   }
+
+   protected void createInventory() {
+      SimpleContainer simplecontainer = this.inventory;
+      this.inventory = new SimpleContainer(this.getInventorySize());
+      if (simplecontainer != null) {
+         simplecontainer.removeListener(this);
+         int i = Math.min(simplecontainer.getContainerSize(), this.inventory.getContainerSize());
+
+         for(int j = 0; j < i; ++j) {
+            ItemStack itemstack = simplecontainer.getItem(j);
+            if (!itemstack.isEmpty()) {
+               this.inventory.setItem(j, itemstack.copy());
+            }
+         }
+      }
+
+      this.inventory.addListener(this);
+      this.updateContainerEquipment();
+      this.itemHandler = net.minecraftforge.common.util.LazyOptional.of(() -> new net.minecraftforge.items.wrapper.InvWrapper(this.inventory));
+   }
+
+   protected void updateContainerEquipment() {
+      /*if (!this.level.isClientSide) {
+         this.setFlag(4, !this.inventory.getItem(0).isEmpty());
+      }*/
+   }
+
+   @Override
+   public void containerChanged(Container p_30548_) {
+      /*boolean flag = this.isSaddled();
+      this.updateContainerEquipment();
+      if (this.tickCount > 20 && !flag && this.isSaddled()) {
+         this.playSound(SoundEvents.HORSE_SADDLE, 0.5F, 1.0F);
+      }*/
+
    }
 }
