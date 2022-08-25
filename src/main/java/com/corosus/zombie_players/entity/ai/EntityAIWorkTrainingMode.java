@@ -1,15 +1,13 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.entity.ZombiePlayer;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.EnumSet;
 
-public class EntityAITrainingMode extends Goal
+public class EntityAIWorkTrainingMode extends Goal
 {
     /** The entity using this AI that is tempted by the player. */
     private final ZombiePlayer temptedEntity;
@@ -42,7 +40,7 @@ public class EntityAITrainingMode extends Goal
         this(temptedEntityIn, speedIn, scaredByPlayerMovementIn, Sets.newHashSet(temptItemIn));
     }*/
 
-    public EntityAITrainingMode(ZombiePlayer temptedEntityIn, double speedIn, boolean scaredByPlayerMovementIn/*, Set<Item> temptItemIn*/)
+    public EntityAIWorkTrainingMode(ZombiePlayer temptedEntityIn, double speedIn, boolean scaredByPlayerMovementIn/*, Set<Item> temptItemIn*/)
     {
         this.temptedEntity = temptedEntityIn;
         this.speed = speedIn;

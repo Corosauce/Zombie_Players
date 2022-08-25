@@ -11,6 +11,7 @@ import com.corosus.zombie_players.util.TreeCutter;
 import com.corosus.zombie_players.util.UtilCrops;
 import com.google.common.collect.Maps;
 import com.mojang.authlib.GameProfile;
+import com.mojang.math.Vector3f;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -52,6 +53,7 @@ public class EntityAIWorkInArea extends Goal
     //private BlockPos posCachedBestChest = null;
 
     private BlockPos posCurrentWorkTarget = BlockPos.ZERO;
+    private BlockPos posNextWorkTarget = BlockPos.ZERO;
 
     //private BlockState stateWork = null;
 
@@ -174,14 +176,33 @@ public class EntityAIWorkInArea extends Goal
     {
 
         //if (true) return false;
+        if (entityObj.isDepositingInChest()) return false;
+
+        if (entityObj.needsMoreWorkItem()) return false;
 
         //posCurrentWorkTarget = BlockPos.ZERO;
-        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
+        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || jobCompleteCooldown >= entityObj.getLevel().getGameTime() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
+        if (posNextWorkTarget != BlockPos.ZERO) {
+            //CULog.dbg("using quickly found next work target");
+            posCurrentWorkTarget = posNextWorkTarget;
+            return true;
+        }
         return canWorkOrFindWork();
     }
 
+    /**
+     * Returns whether an in-progress EntityAIBase should continue executing
+     */
+    @Override
+    public boolean canContinueToUse()
+    {
+        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || jobCompleteCooldown >= entityObj.getLevel().getGameTime() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
+        if (entityObj.needsMoreWorkItem()) return false;
+        return !posCurrentWorkTarget.equals(BlockPos.ZERO);
+    }
+
     public boolean canWorkOrFindWork() {
-        if (scanNextTickWork < entityObj.getLevel().getGameTime() && jobCompleteCooldown < entityObj.getLevel().getGameTime()) {
+        if (scanNextTickWork < entityObj.getLevel().getGameTime()) {
             scanNextTickWork = entityObj.getLevel().getGameTime() + scanCooldownAmount;
 
             if (!entityObj.getWorkInfo().getPosWorkCenter().equals(BlockPos.ZERO) && posCurrentWorkTarget.equals(BlockPos.ZERO)) {
@@ -194,7 +215,7 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public int getWorkDistance() {
-        return 10;
+        return entityObj.getWorkDistance();
     }
 
     public BlockPos findWorkBlockPosRadial() {
@@ -207,7 +228,7 @@ public class EntityAIWorkInArea extends Goal
 
             curScanRange++;
             if (curScanRange > getWorkDistance()) {
-                curScanRange = 2;
+                curScanRange = 1;
             }
         }
 
@@ -226,6 +247,11 @@ public class EntityAIWorkInArea extends Goal
             lastZ = z;
 
             //CULog.dbg("scan " + x + " - " + z);
+            boolean dbgScan = true;
+            if (dbgScan) {
+                BlockPos pos = this.entityObj.blockPosition().offset(x, 0, z);
+                ((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+            }
 
             for (int y = -4; y <= getWorkDistance()/2; y++) {
             //for (int y = -getWorkDistance()/2; y <= getWorkDistance()/2; y++) {
@@ -240,11 +266,11 @@ public class EntityAIWorkInArea extends Goal
                     }
                 }
 
-                //((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+
                 //CULog.dbg("probe: " + pos);
                 if (isValidWorkBlock(pos)) {
                     if (entityObj.level.getBlockState(pos).is(BlockTags.LOGS)) {
-                        if (!entityObj.level.getBlockState(pos.below()).is(BlockTags.LOGS) && !entityObj.level.getBlockState(pos.below()).isAir()) {
+                        if (!entityObj.level.getBlockState(pos.below()).is(BlockTags.LOGS) && !entityObj.level.getBlockState(pos.below()).is(BlockTags.LEAVES) && !entityObj.level.getBlockState(pos.below()).isAir()) {
                             posCurrentWorkTarget = pos;
                             return posCurrentWorkTarget;
                         }
@@ -285,12 +311,17 @@ public class EntityAIWorkInArea extends Goal
     public boolean isValidWorkBlock(BlockPos pos) {
         BlockState state = entityObj.level.getBlockState(pos);
 
+        /*CULog.dbg("dbg: " + pos);
+        CULog.dbg("dbgstate: " + state);*/
 
         //TODO: problem, this line fails for cave vines cause theres 2 cave vines blocks, how to fix by matching getBlockInfo without breaking othing stuff?
         //if our info match is tag based, just do if state.is(tag) ?
         //would help with various tree matches too
         BlockInfo infoDesired = getBlockInfo(entityObj.getWorkInfo().getStateWorkLastObserved());
         BlockInfo info = getBlockInfo(state);
+        /*if (state.getBlock() == Blocks.FARMLAND) {
+            CULog.dbg("sdfsdfsdf");
+        }*/
         if (state.getBlock() == entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() || (infoDesired != null && info == infoDesired)) {
             boolean foundRuleForBlock = false;
             boolean successfullMatchPhase1 = false;
@@ -353,8 +384,6 @@ public class EntityAIWorkInArea extends Goal
 
                     //check if there is air on the side player clicked
                     BlockPos posCheckForAir = pos.relative(entityObj.getWorkInfo().getWorkClickDirectionLastObserved());
-                    //CULog.dbg("first pos: " + pos);
-                    //CULog.dbg("posCheckForAir: " + posCheckForAir);
 
                     if (!entityObj.level.getBlockState(posCheckForAir).isAir()) {
                         return false;
@@ -391,19 +420,11 @@ public class EntityAIWorkInArea extends Goal
         }
     }
 
-    /**
-     * Returns whether an in-progress EntityAIBase should continue executing
-     */
-    @Override
-    public boolean canContinueToUse()
-    {
-        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
-        return !posCurrentWorkTarget.equals(BlockPos.ZERO);
-    }
-
     @Override
     public void tick() {
         super.tick();
+
+        //if (jobCompleteCooldown >= entityObj.getLevel().getGameTime()) return;
 
         /*if (hasFoodSource(entityObj.inventory)) {
             consumeOneStackSizeOfFood(entityObj.inventory);
@@ -432,6 +453,8 @@ public class EntityAIWorkInArea extends Goal
                     entityObj.ateCalmingItem(true);
                 }*/
                 if (operateOnTargetPosition(blockposGoal)) {
+                    posNextWorkTarget = quickFindNeighborWorkBlock(posCurrentWorkTarget);
+
                     posCurrentWorkTarget = BlockPos.ZERO;
                 }
 
@@ -544,10 +567,11 @@ public class EntityAIWorkInArea extends Goal
     public void stop()
     {
         super.stop();
-        ((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, entityObj.getX(), entityObj.getY() + 1.5, entityObj.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
+        ((ServerLevel)entityObj.level).sendParticles(new DustParticleOptions(new Vector3f(0f, 0f, 1f), 1f), entityObj.getX(), entityObj.getY() + 1.5, entityObj.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
         walkingTimeout = walkingTimeoutMax;
         posCurrentWorkTarget = BlockPos.ZERO;
-        curScanRange = 2;
+        //posNextWorkTarget = BlockPos.ZERO;
+        curScanRange = 1;
         //stuckTimeout = 0;
     }
 
@@ -558,7 +582,10 @@ public class EntityAIWorkInArea extends Goal
             /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
                     BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
 
-            entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
+            /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
+                    BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
+
+            entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getMainHandItem(),
                     BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));
 
             //entityObj.level.getBlockState(pos).use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos, true));
@@ -571,7 +598,7 @@ public class EntityAIWorkInArea extends Goal
                     }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.HARVEST) {
                     FakePlayer fakePlayer = FakePlayerFactory.get((ServerLevel) entityObj.level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
-                    if (!UtilCrops.harvestAndReplant(entityObj.level, pos, state, fakePlayer)) {
+                    if (!UtilCrops.harvestAndReplant(entityObj.level, pos, state, fakePlayer, entityObj)) {
                         entityObj.level.destroyBlock(pos, true);
                     }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_VEINMINE_TREE) {
@@ -605,6 +632,8 @@ public class EntityAIWorkInArea extends Goal
         jobCompleteCooldown = entityObj.level.getGameTime() + jobCompleteCooldownValue;
         jobCompleteCooldown = entityObj.level.getGameTime() + 30;
 
+        curScanRange = 1;
+
         return true;
     }
 
@@ -624,5 +653,16 @@ public class EntityAIWorkInArea extends Goal
         return info;
     }
 
-
+    public BlockPos quickFindNeighborWorkBlock(BlockPos completedJobPos) {
+        for (Direction dir : Direction.values()) {
+            if (dir != Direction.UP && dir != Direction.DOWN) {
+                BlockPos pos = completedJobPos.relative(dir);
+                if (isValidWorkBlock(pos)) {
+                    //CULog.dbg("setup next work pos: " + pos);
+                    return pos;
+                }
+            }
+        }
+        return BlockPos.ZERO;
+    }
 }

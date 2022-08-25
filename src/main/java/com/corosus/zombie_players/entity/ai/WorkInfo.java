@@ -3,21 +3,18 @@ package com.corosus.zombie_players.entity.ai;
 import com.corosus.zombie_players.entity.EnumTrainType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class WorkInfo {
 
     private boolean performWork = false;
-
     private BlockPos posWorkCenter = BlockPos.ZERO;
-
     private BlockState stateWorkLastObserved = Blocks.AIR.defaultBlockState();
-
+    private ItemStack itemNeededForWork = ItemStack.EMPTY;
     private EnumTrainType workClickLastObserved = EnumTrainType.BLOCK_LEFT_CLICK;
-
     private Direction workClickDirectionLastObserved = Direction.UP;
-
     private boolean inTrainingMode = false;
 
     public BlockPos getPosWorkCenter() {
@@ -66,5 +63,13 @@ public class WorkInfo {
 
     public void setPerformWork(boolean performWork) {
         this.performWork = performWork;
+    }
+
+    public ItemStack getItemNeededForWork() {
+        return itemNeededForWork;
+    }
+
+    public void setItemNeededForWork(ItemStack itemNeededForWork) {
+        this.itemNeededForWork = itemNeededForWork;
     }
 }

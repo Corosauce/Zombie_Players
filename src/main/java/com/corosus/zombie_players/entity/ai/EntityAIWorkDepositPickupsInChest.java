@@ -3,18 +3,16 @@ package com.corosus.zombie_players.entity.ai;
 import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.Container;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 
-public class EntityAIDepositPickupsInChest extends Goal
+public class EntityAIWorkDepositPickupsInChest extends Goal
 {
     private final ZombiePlayer entityObj;
 
@@ -25,9 +23,9 @@ public class EntityAIDepositPickupsInChest extends Goal
 
     private int lookUpdateTimer = 0;
 
-    public BlockPos posCachedBestChest = null;
+    public BlockPos posCachedBestChest = BlockPos.ZERO;
 
-    public EntityAIDepositPickupsInChest(ZombiePlayer entityObjIn)
+    public EntityAIWorkDepositPickupsInChest(ZombiePlayer entityObjIn)
     {
         this.entityObj = entityObjIn;
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
@@ -41,7 +39,7 @@ public class EntityAIDepositPickupsInChest extends Goal
     {
         if (entityObj.hasAnyItemsInExtra() && entityObj.hasChestToUse()) {
             posCachedBestChest = entityObj.getClosestChestPosWithSpace();
-            return posCachedBestChest != null;
+            return posCachedBestChest != BlockPos.ZERO;
         }
         return false;
     }
@@ -66,11 +64,11 @@ public class EntityAIDepositPickupsInChest extends Goal
             return;
         }*/
 
-        if (posCachedBestChest != null) {
+        if (posCachedBestChest != BlockPos.ZERO) {
             boolean isClose = false;
             BlockPos blockposGoal = posCachedBestChest;
 
-            if (blockposGoal == null) {
+            if (blockposGoal == BlockPos.ZERO) {
                 stop();
                 return;
             }
@@ -78,6 +76,7 @@ public class EntityAIDepositPickupsInChest extends Goal
             //prevent walking into the fire
             double dist = entityObj.position().distanceTo(new Vec3(blockposGoal.getX(), blockposGoal.getY(), blockposGoal.getZ()));
             if (dist <= 3D) {
+                entityObj.setDepositingInChest(true);
                 entityObj.openChest(posCachedBestChest);
 
                 entityObj.ejectItems(posCachedBestChest);
@@ -153,13 +152,15 @@ public class EntityAIDepositPickupsInChest extends Goal
     {
         super.stop();
         walkingTimeout = 0;
+        entityObj.setDepositingInChest(false);
+        ((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, entityObj.getX(), entityObj.getY() + 1.5, entityObj.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
     }
 
     public boolean verifyOrGetNewChest() {
-        if (posCachedBestChest == null) return false;
+        if (posCachedBestChest == BlockPos.ZERO) return false;
         if (!entityObj.isValidChestForWork(posCachedBestChest, false)) {
             posCachedBestChest = entityObj.getClosestChestPosWithSpace();
         }
-        return posCachedBestChest != null;
+        return posCachedBestChest != BlockPos.ZERO;
     }
 }

@@ -9,14 +9,14 @@ import net.minecraft.world.entity.item.ItemEntity;
 import java.util.EnumSet;
 import java.util.List;
 
-public class EntityAIMoveToWantedNearbyItemsForWork extends Goal
+public class EntityAIWorkMoveToWantedNearbyItems extends Goal
 {
     private final ZombiePlayer zombiePlayer;
     private ItemEntity target;
     private final double speed;
     private int pathTimeout;
 
-    public EntityAIMoveToWantedNearbyItemsForWork(ZombiePlayer villagerIn, double speedIn)
+    public EntityAIWorkMoveToWantedNearbyItems(ZombiePlayer villagerIn, double speedIn)
     {
         this.zombiePlayer = villagerIn;
         this.speed = speedIn;
@@ -28,6 +28,7 @@ public class EntityAIMoveToWantedNearbyItemsForWork extends Goal
      */
     public boolean canUse()
     {
+        if (zombiePlayer.isDepositingInChest()) return false;
 
         if (!zombiePlayer.getWorkInfo().isPerformingWork()) {
             return false;

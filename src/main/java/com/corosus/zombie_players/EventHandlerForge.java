@@ -79,7 +79,8 @@ public class EventHandlerForge {
 				BlockState state = ent.level.getBlockState(pos);
 				ent.getWorkInfo().setStateWorkLastObserved(state);
 				ent.getWorkInfo().setWorkClickDirectionLastObserved(direction);
-				player.sendMessage(new TextComponent("Zombie Player observed " + state), new UUID(0, 0));
+				ent.getWorkInfo().setItemNeededForWork(player.getMainHandItem());
+				player.sendMessage(new TextComponent("Zombie Player observed " + state + " using " + player.getMainHandItem()), new UUID(0, 0));
 			}
 		}
 	}

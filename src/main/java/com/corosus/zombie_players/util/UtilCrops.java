@@ -3,6 +3,7 @@ package com.corosus.zombie_players.util;
 import com.google.common.collect.Maps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -36,12 +37,12 @@ public class UtilCrops {
         return vals.stream().max(Integer::compare).orElse(0);
     }
 
-    public static boolean harvestAndReplant(Level world, BlockPos pos, BlockState inWorld, Player player) {
+    public static boolean harvestAndReplant(Level world, BlockPos pos, BlockState inWorld, Player player, LivingEntity entityWithInventory) {
         initDataIfNeeded();
         if (!(world instanceof ServerLevel))
             return false;
 
-        ItemStack mainHand = player.getMainHandItem();
+        ItemStack mainHand = entityWithInventory.getMainHandItem();
 
         int fortune = 0;
 
