@@ -22,10 +22,10 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	public static int distanceFromPlayerSpawnPointToPreventZombieSpawn = 16;
 
 	@ConfigComment("Spawn zombie players naturally in the world, will spawn in every biome zombies do")
-	public static boolean Spawning_spawnZombiePlayersNaturally = false;
+	public static boolean Spawning_spawnZombiePlayersNaturally = true;
 
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Weight of zombie players, higher = more likely to spawn, vanilla sets zombie as 100")
-	public static int Spawning_weight = 20;
+	public static int Spawning_weight = 40;
 
 	//TODO: nether problem, biome white/blacklist?
 

@@ -31,6 +31,7 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -108,11 +109,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.createInventory();
    }
 
-   public static ZombiePlayer spawnInPlaceOfPlayer(Player player) {
+   public static ZombiePlayer spawnInPlaceOfPlayer(ServerPlayer player) {
       boolean spawn = true;
       ZombiePlayer zombie = null;
-      if (player.getSleepingPos().get() != null) {
-         if (player.getSleepingPos().get().distSqr(new BlockPos(Mth.floor(player.getX()), Mth.floor(player.getY()), Mth.floor(player.getZ()))) <
+      if (player.getRespawnPosition() != BlockPos.ZERO) {
+         if (player.getRespawnPosition().distSqr(new BlockPos(Mth.floor(player.getX()), Mth.floor(player.getY()), Mth.floor(player.getZ()))) <
                  ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn * ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn) {
             spawn = false;
          }
@@ -121,8 +122,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
          if (player.level instanceof ServerLevelAccessor) {
             zombie = spawnInPlaceOfPlayer(player.level, player.getX(), player.getY(), player.getZ(), player.getGameProfile());
-            if (player.getSleepingPos().get() != null) {
-               zombie.setHomePosAndDistance(player.getSleepingPos().get(), 16, true);
+            if (player.getRespawnPosition() != BlockPos.ZERO) {
+               zombie.setHomePosAndDistance(player.getRespawnPosition(), 16, true);
             }
          }
       }
@@ -363,21 +364,29 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             player.sendMessage(new TextComponent("Set work center"), uuid);
             getWorkInfo().setPosWorkCenter(blockPosition());
          } else if (itemstack.getItem() == Items.GOLDEN_HOE) {
-            getWorkInfo().setInTrainingMode(!getWorkInfo().isInTrainingMode());
-            if (getWorkInfo().isInTrainingMode()) {
-               getWorkInfo().setStateWorkLastObserved(Blocks.AIR.defaultBlockState());
-               player.sendMessage(new TextComponent("Training Zombie Player"), uuid);
+            if (player.isCrouching()) {
+               CompoundTag tag = player.getPersistentData();
+               player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 1);
+               getWorkInfo().setInAreaSetMode(true);
+               player.sendMessage(new TextComponent("Setting work area, right click first block with golden hoe"), uuid);
             } else {
-               if (getWorkInfo().getStateWorkLastObserved().isAir()) {
-                  player.sendMessage(new TextComponent("Training ended, no work set"), uuid);
-                  getWorkInfo().setPerformWork(false);
+               getWorkInfo().setInTrainingMode(!getWorkInfo().isInTrainingMode());
+               if (getWorkInfo().isInTrainingMode()) {
+                  getWorkInfo().setStateWorkLastObserved(Blocks.AIR.defaultBlockState());
+                  player.sendMessage(new TextComponent("Training Zombie Player"), uuid);
                } else {
-                  player.sendMessage(new TextComponent("Training ended, work starting"), uuid);
-                  getWorkInfo().setPerformWork(true);
-                  restrictTo(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
-               }
+                  if (getWorkInfo().getStateWorkLastObserved().isAir()) {
+                     player.sendMessage(new TextComponent("Training ended, no work set"), uuid);
+                     getWorkInfo().setPerformWork(false);
+                  } else {
+                     player.sendMessage(new TextComponent("Training ended, work starting"), uuid);
+                     getWorkInfo().setPerformWork(true);
+                     restrictTo(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
+                  }
 
+               }
             }
+
 
          } else if (isCalm() && itemstack.isEmpty()) {
             shouldFollowOwner = !shouldFollowOwner;
@@ -423,16 +432,18 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             boolean debugState = true;
 
             if (debugState && level.getGameTime() % 1 == 0) {
-               for (int x = -getWorkDistance(); x < getWorkDistance(); x++) {
+               /*for (int x = -getWorkDistance(); x < getWorkDistance(); x++) {
                   for (int z = -getWorkDistance(); z < getWorkDistance(); z++) {
                      float dist = (float) getWorkInfo().getPosWorkCenter().distSqr(new BlockPos(getWorkInfo().getPosWorkCenter().getX() + x, getWorkInfo().getPosWorkCenter().getY() + 0.5, getWorkInfo().getPosWorkCenter().getZ() + z));
                      if (dist > (getWorkDistance()-1) * (getWorkDistance()-1) && dist < getWorkDistance() * getWorkDistance()) {
                         particle(0, 0, 1, getWorkInfo().getPosWorkCenter().getX() + x, getWorkInfo().getPosWorkCenter().getY() + 1.5F, getWorkInfo().getPosWorkCenter().getZ() + z);
                      }
-
-                     //((ServerLevel)entityObj.level).sendParticles(new DustParticleOptions(new Vector3f(0f, 0f, 1f), 1f), entityObj.getX(), entityObj.getY() + 1.5, entityObj.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
                   }
-               }
+               }*/
+
+               AABB aabb = getWorkInfo().getPosWorkArea();
+               particle(0, 0, 1, (float)aabb.minX + 0.5F, (float)aabb.minY + 0.5F, (float)aabb.minZ + 0.5F);
+               particle(0, 0, 1, (float)aabb.maxX + 0.5F, (float)aabb.maxY + 0.5F, (float)aabb.maxZ + 0.5F);
             }
 
             if (chestUseTime > 0 && !isDepositingInChest()) {
@@ -1614,6 +1625,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.itemHandler = net.minecraftforge.common.util.LazyOptional.of(() -> new net.minecraftforge.items.wrapper.InvWrapper(this.inventory));
    }
 
+   public boolean isWithinWorkArea(BlockPos pos) {
+      return getWorkInfo().getPosWorkArea().contains(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F);
+   }
+
    protected void updateContainerEquipment() {
       /*if (!this.level.isClientSide) {
          this.setFlag(4, !this.inventory.getItem(0).isEmpty());
@@ -1640,5 +1655,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    public int getWorkDistance() {
       return 10;
+   }
+
+   @Override
+   public int getMaxSpawnClusterSize() {
+      return super.getMaxSpawnClusterSize();
    }
 }

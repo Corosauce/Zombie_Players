@@ -20,7 +20,7 @@ public class EntityRegistry {
     public static void registerEntity(RegistryEvent.Register<EntityType<?>> e) {
         IForgeRegistry<EntityType<?>> r = e.getRegistry();
         r.register(
-                EntityType.Builder.of(ZombiePlayer::new, MobCategory.MISC)
+                EntityType.Builder.of(ZombiePlayer::new, MobCategory.MONSTER)
                         .setShouldReceiveVelocityUpdates(false)
                         .setUpdateInterval(3)
                         .setTrackingRange(128)
