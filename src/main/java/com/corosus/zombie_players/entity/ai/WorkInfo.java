@@ -7,11 +7,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class WorkInfo {
 
     private boolean performWork = false;
-    private BlockPos posWorkCenter = BlockPos.ZERO;
+    //private BlockPos posWorkCenter = BlockPos.ZERO;
     private AABB posWorkArea = new AABB(0, 0, 0, 0, 0, 0);
     private BlockState stateWorkLastObserved = Blocks.AIR.defaultBlockState();
     private ItemStack itemNeededForWork = ItemStack.EMPTY;
@@ -20,14 +21,15 @@ public class WorkInfo {
     private boolean inTrainingMode = false;
     private boolean inAreaSetMode = false;
     private BlockPos workAreaPos1 = BlockPos.ZERO;
+    private BlockHitResult blockHitResult = null;
 
-    public BlockPos getPosWorkCenter() {
+    /*public BlockPos getPosWorkCenter() {
         return posWorkCenter;
-    }
+    }*/
 
-    public void setPosWorkCenter(BlockPos posWorkCenter) {
+    /*public void setPosWorkCenter(BlockPos posWorkCenter) {
         this.posWorkCenter = posWorkCenter;
-    }
+    }*/
 
     public BlockState getStateWorkLastObserved() {
         return stateWorkLastObserved;
@@ -99,5 +101,17 @@ public class WorkInfo {
 
     public void setPosWorkArea(AABB posWorkArea) {
         this.posWorkArea = posWorkArea;
+    }
+
+    public boolean isWorkAreaSet() {
+        return posWorkArea.getSize() > 0;
+    }
+
+    public BlockHitResult getBlockHitResult() {
+        return blockHitResult;
+    }
+
+    public void setBlockHitResult(BlockHitResult blockHitResult) {
+        this.blockHitResult = blockHitResult;
     }
 }

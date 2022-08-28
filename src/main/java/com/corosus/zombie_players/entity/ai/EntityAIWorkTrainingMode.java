@@ -77,7 +77,7 @@ public class EntityAIWorkTrainingMode extends Goal
 
     protected boolean isTempting(ItemStack stack)
     {
-        return temptedEntity.getWorkInfo().isInTrainingMode();
+        return temptedEntity.getWorkInfo().isInTrainingMode() || temptedEntity.getWorkInfo().isInAreaSetMode();
     }
 
     /**

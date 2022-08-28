@@ -16,14 +16,17 @@ import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
@@ -135,6 +138,8 @@ public class EntityAIWorkInArea extends Goal
         //TODO: data driven style like: "minecraft:wheat[age=7]", see quark SimpleHarvestModule
 
         add(CropBlock.class, CropBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
+        add(PotatoBlock.class, PotatoBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
+        add(BeetrootBlock.class, BeetrootBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
         add(SugarCaneBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
         add(CactusBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
         add(GrowingPlantBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
@@ -205,7 +210,7 @@ public class EntityAIWorkInArea extends Goal
         if (scanNextTickWork < entityObj.getLevel().getGameTime()) {
             scanNextTickWork = entityObj.getLevel().getGameTime() + scanCooldownAmount;
 
-            if (!entityObj.getWorkInfo().getPosWorkCenter().equals(BlockPos.ZERO) && posCurrentWorkTarget.equals(BlockPos.ZERO)) {
+            if (entityObj.getWorkInfo().isWorkAreaSet() && posCurrentWorkTarget.equals(BlockPos.ZERO)) {
                 return !findWorkBlockPosRadial().equals(BlockPos.ZERO);
             }
             return false;
@@ -284,31 +289,10 @@ public class EntityAIWorkInArea extends Goal
         return BlockPos.ZERO;
     }
 
-    public BlockPos findWorkBlockPos() {
-        int range = getWorkDistance();
-        for (int x = -range; x <= range; x++) {
-            for (int y = -1; y <= range/2; y++) {
-            //for (int y = -range/2; y <= range/2; y++) {
-                for (int z = -range; z <= range; z++) {
-                    BlockPos pos = this.entityObj.getWorkInfo().getPosWorkCenter().offset(x, y, z);
-                    if (isValidWorkBlock(pos)) {
-                        if (entityObj.level.getBlockState(pos).is(BlockTags.LOGS)) {
-                            if (!entityObj.level.getBlockState(pos.below()).is(BlockTags.LOGS) && !entityObj.level.getBlockState(pos.below()).isAir()) {
-                                posCurrentWorkTarget = pos;
-                                return posCurrentWorkTarget;
-                            }
-                        } else {
-                            posCurrentWorkTarget = pos;
-                            return posCurrentWorkTarget;
-                        }
-                    }
-                }
-            }
-        }
-        return BlockPos.ZERO;
-    }
-
     public boolean isValidWorkBlock(BlockPos pos) {
+
+        if (!entityObj.getWorkInfo().getPosWorkArea().contains(pos.getX(), pos.getY(), pos.getZ())) return false;
+
         BlockState state = entityObj.level.getBlockState(pos);
 
         /*CULog.dbg("dbg: " + pos);
@@ -326,7 +310,8 @@ public class EntityAIWorkInArea extends Goal
             boolean foundRuleForBlock = false;
             boolean successfullMatchPhase1 = false;
 
-            if (info != null) {
+            //need to have special rules only when no special tool being used, otherwise things like trying to harvest with bonemeal in hands will happen
+            if (info != null && entityObj.getWorkInfo().getItemNeededForWork().isEmpty()) {
                 foundRuleForBlock = true;
             }
 
@@ -378,16 +363,28 @@ public class EntityAIWorkInArea extends Goal
                     }
                 }
 
+                if (info != null) {
+                    if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM) {
+                        if (entityObj.level.getBlockState(pos.below()).getBlock() != entityObj.getWorkInfo().getStateWorkLastObserved().getBlock()) {
+                            return false;
+                        }
+                    }
+                }
+
                 //if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
                 //lets try requiring air next to spot ONLY for blocks that have specificly set break operation rules
                 if (!foundRuleForBlock) {
 
-                    //check if there is air on the side player clicked
-                    BlockPos posCheckForAir = pos.relative(entityObj.getWorkInfo().getWorkClickDirectionLastObserved());
+                    if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
+                        //check if there is air on the side player clicked, allowing for an open area to click into
+                        BlockPos posCheckForAir = pos.relative(entityObj.getWorkInfo().getWorkClickDirectionLastObserved());
 
-                    if (!entityObj.level.getBlockState(posCheckForAir).isAir()) {
-                        return false;
+                        if (!entityObj.level.getBlockState(posCheckForAir).isAir()) {
+                            return false;
+                        }
                     }
+
+                    //allow left click breaking to just work
 
                     /*if (entityObj.getWorkInfo().getWorkClickDirectionLastObserved() == Direction.UP) {
                         if (!entityObj.level.getBlockState(pos.above()).isAir()) {
@@ -404,7 +401,7 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public boolean isWithinRestrictions(BlockPos pos) {
-        return entityObj.isWithinRestriction(pos) && this.entityObj.getWorkInfo().getPosWorkCenter().distSqr(pos) < getWorkDistance() * getWorkDistance();
+        return entityObj.isWithinRestriction(pos) && this.entityObj.getWorkInfo().getPosWorkArea().contains(pos.getX(), pos.getY(), pos.getZ());
     }
 
     public boolean hasLineOfSight(LivingEntity source, BlockPos p_147185_) {
@@ -576,17 +573,35 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public boolean operateOnTargetPosition(BlockPos pos) {
+        boolean performedAction = false;
         BlockState state = entityObj.level.getBlockState(pos);
         if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
-            FakePlayer fakePlayer = FakePlayerFactory.get((ServerLevel) entityObj.level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
+            FakePlayer fakePlayer = entityObj.getFakePlayer();
             /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
                     BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
 
             /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
                     BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
 
-            entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getMainHandItem(),
-                    BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));
+            //TODO: conflict here, item in hand seed, block to hit compost, we need
+
+            if (!entityObj.getMainHandItem().isEmpty()) {
+                InteractionResult result = entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getMainHandItem(),
+                        BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));
+                if (result == InteractionResult.PASS || result == InteractionResult.FAIL) {
+                    if (entityObj.getWorkInfo().getBlockHitResult() != null) {
+                        state.use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getWorkInfo().getBlockHitResult());
+                        performedAction = true;
+                    }
+                } else {
+                    performedAction = true;
+                }
+            } else {
+                if (entityObj.getWorkInfo().getBlockHitResult() != null) {
+                    state.use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getWorkInfo().getBlockHitResult());
+                    performedAction = true;
+                }
+            }
 
             //entityObj.level.getBlockState(pos).use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos, true));
         } else if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_LEFT_CLICK) {
@@ -595,44 +610,55 @@ public class EntityAIWorkInArea extends Goal
                 if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_NORMAL) {
                     if (entityObj.level.getBlockState(pos).getDestroySpeed(entityObj.level, pos) >= 0) {
                         entityObj.level.destroyBlock(pos, true);
+                        performedAction = true;
                     }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.HARVEST) {
-                    FakePlayer fakePlayer = FakePlayerFactory.get((ServerLevel) entityObj.level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
+                    FakePlayer fakePlayer = entityObj.getFakePlayer();
                     if (!UtilCrops.harvestAndReplant(entityObj.level, pos, state, fakePlayer, entityObj)) {
                         entityObj.level.destroyBlock(pos, true);
+                        performedAction = true;
                     }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_VEINMINE_TREE) {
                     //TODO: says pos needs to be air for findTree, tweak this when you test
                     TreeCutter.Tree tree = TreeCutter.findTree(entityObj.level, pos);
                     for (BlockPos posEntry : tree.getLogs()) {
                         entityObj.level.destroyBlock(posEntry, true);
+                        performedAction = true;
                     }
                     for (BlockPos posEntry : tree.getLeaves()) {
                         entityObj.level.destroyBlock(posEntry, true);
+                        performedAction = true;
                     }
                     entityObj.level.destroyBlock(pos, true);
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM) {
-                    if (entityObj.level.getBlockState(pos.below()).getBlock() == entityObj.getWorkInfo().getStateWorkLastObserved().getBlock()) {
+                    //if (entityObj.level.getBlockState(pos.below()).getBlock() == entityObj.getWorkInfo().getStateWorkLastObserved().getBlock()) {
                         entityObj.level.destroyBlock(pos, true);
-                    }
+                        performedAction = true;
+                    //}
                 }
             } else {
                 //CULog.dbg("error no info on blockstate: " + state);
 
                 if (entityObj.level.getBlockState(pos).getDestroySpeed(entityObj.level, pos) >= 0) {
                     entityObj.level.destroyBlock(pos, true);
+                    performedAction = true;
                 }
 
             }
         }
 
-        entityObj.swing(InteractionHand.MAIN_HAND);
-        entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+        if (performedAction) {
+            entityObj.swing(InteractionHand.MAIN_HAND);
+            entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+            ((ServerLevel)entityObj.level).sendParticles(ParticleTypes.WITCH, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 5, 0.3D, 0D, 0.3D, 1D);
+        }
+
 
         jobCompleteCooldown = entityObj.level.getGameTime() + jobCompleteCooldownValue;
         jobCompleteCooldown = entityObj.level.getGameTime() + 30;
 
         curScanRange = 1;
+
 
         return true;
     }
@@ -654,14 +680,21 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public BlockPos quickFindNeighborWorkBlock(BlockPos completedJobPos) {
-        for (Direction dir : Direction.values()) {
-            if (dir != Direction.UP && dir != Direction.DOWN) {
+        List<Direction> list = new ArrayList<>();
+        Arrays.stream(Direction.values()).forEach(p -> list.add(p));
+        Collections.shuffle(list);
+        for (Direction dir : list) {
+            //if (dir != Direction.UP && dir != Direction.DOWN) {
                 BlockPos pos = completedJobPos.relative(dir);
                 if (isValidWorkBlock(pos)) {
                     //CULog.dbg("setup next work pos: " + pos);
                     return pos;
                 }
-            }
+            //}
+        }
+        //for repetitive tasks
+        if (isValidWorkBlock(completedJobPos)) {
+            return completedJobPos;
         }
         return BlockPos.ZERO;
     }

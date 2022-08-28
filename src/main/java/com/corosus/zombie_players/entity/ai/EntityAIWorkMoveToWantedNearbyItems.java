@@ -50,10 +50,11 @@ public class EntityAIWorkMoveToWantedNearbyItems extends Goal
                 {
                     double d1 = entity.distanceToSqr(this.zombiePlayer);
 
-                    if (d1 <= d0 && zombiePlayer.hasLineOfSight(entity))
-                    {
-                        d0 = d1;
-                        this.target = entity;
+                    if (zombiePlayer.getWorkInfo().getPosWorkArea().contains(entity.position())) {
+                        if (d1 <= d0 && zombiePlayer.hasLineOfSight(entity)) {
+                            d0 = d1;
+                            this.target = entity;
+                        }
                     }
                 }
             }

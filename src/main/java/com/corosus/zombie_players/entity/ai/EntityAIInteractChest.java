@@ -141,7 +141,7 @@ public class EntityAIInteractChest extends Goal
             ChestBlockEntity chest = (ChestBlockEntity) tEnt;
             int randSlot1 = 0;
             for (int i = 0; i < chest.getContainerSize(); i++) {
-                if (chest.getItem(i) != ItemStack.EMPTY) {
+                if (!chest.getItem(i).isEmpty()) {
                     randSlot1 = i;
                     break;
                 }

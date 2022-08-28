@@ -16,6 +16,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -77,24 +79,25 @@ public class EventHandlerForge {
 								Math.min(ent.getWorkInfo().getWorkAreaPos1().getX(), event.getPos().getX()),
 								Math.min(ent.getWorkInfo().getWorkAreaPos1().getY(), event.getPos().getY()),
 								Math.min(ent.getWorkInfo().getWorkAreaPos1().getZ(), event.getPos().getZ()),
-								Math.max(ent.getWorkInfo().getWorkAreaPos1().getX(), event.getPos().getX()),
-								Math.max(ent.getWorkInfo().getWorkAreaPos1().getY(), event.getPos().getY()),
-								Math.max(ent.getWorkInfo().getWorkAreaPos1().getZ(), event.getPos().getZ()));
+								Math.max(ent.getWorkInfo().getWorkAreaPos1().getX(), event.getPos().getX())+1,
+								Math.max(ent.getWorkInfo().getWorkAreaPos1().getY(), event.getPos().getY())+1,
+								Math.max(ent.getWorkInfo().getWorkAreaPos1().getZ(), event.getPos().getZ())+1);
 						ent.getWorkInfo().setPosWorkArea(aabb);
 						ent.getWorkInfo().setInAreaSetMode(false);
+						Vec3 center = ent.getWorkInfo().getPosWorkArea().getCenter();
+						ent.restrictTo(new BlockPos(center.x, center.y, center.z), (int) ent.getWorkInfo().getPosWorkArea().getSize());
 						event.getPlayer().sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " work area set to " + aabb), new UUID(0, 0));
 					}
 				}
-
-
 			}
+			trainZombiePlayer(event.getPlayer(), event.getWorld(), event.getPos(), EnumTrainType.BLOCK_RIGHT_CLICK, event.getFace(), event.getHitVec());
 		}
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onPlayerLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
 
-		trainZombiePlayer(event.getPlayer(), event.getWorld(), event.getPos(), EnumTrainType.BLOCK_LEFT_CLICK, event.getFace());
+		trainZombiePlayer(event.getPlayer(), event.getWorld(), event.getPos(), EnumTrainType.BLOCK_LEFT_CLICK, event.getFace(), null);
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
@@ -104,7 +107,7 @@ public class EventHandlerForge {
 
 
 
-	public void trainZombiePlayer(Player player, Level level, BlockPos pos, EnumTrainType trainType, Direction direction) {
+	public void trainZombiePlayer(Player player, Level level, BlockPos pos, EnumTrainType trainType, Direction direction, BlockHitResult blockHitResult) {
 		List<ZombiePlayer> listEnts = level.getEntitiesOfClass(ZombiePlayer.class, new AABB(pos).inflate(10, 5, 10));
 		for (ZombiePlayer ent : listEnts) {
 			if (ent.isCalm() && ent.getWorkInfo().isInTrainingMode() && ent.getOwnerUUID().equals(player.getUUID())) {
@@ -114,7 +117,8 @@ public class EventHandlerForge {
 				ent.getWorkInfo().setStateWorkLastObserved(state);
 				ent.getWorkInfo().setWorkClickDirectionLastObserved(direction);
 				ent.getWorkInfo().setItemNeededForWork(player.getMainHandItem());
-				player.sendMessage(new TextComponent("Zombie Player " + ent.getName() + " observed " + state + " using " + player.getMainHandItem()), new UUID(0, 0));
+				ent.getWorkInfo().setBlockHitResult(blockHitResult);
+				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " observed " + state + " using " + player.getMainHandItem()), new UUID(0, 0));
 			}
 		}
 	}

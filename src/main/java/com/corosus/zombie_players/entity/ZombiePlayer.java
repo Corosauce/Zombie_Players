@@ -50,11 +50,9 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BedItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
@@ -99,14 +97,19 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public long lastTimeStartedPlaying = 0;
    public int calmTicksVeryLow = 100;
    public int calmTicksLow = 20 * 90;
-   protected SimpleContainer inventory;
+   /**
+    * Now using inventory from fakeplayer for extra slots, and ai entity inventory for hands and armor, and also redirecting players hand lookups to zombie player hands
+    */
+   //protected SimpleContainer inventory;
    private WorkInfo workInfo = new WorkInfo();
    private boolean isDepositingInChest = false;
+   private FakePlayer fakePlayer = null;
+   private int itemUseTime = 0;
 
    public ZombiePlayer(EntityType<ZombiePlayer> entityEntityType, Level level) {
       super(entityEntityType, level);
       ((GroundPathNavigation)getNavigation()).setCanOpenDoors(true);
-      this.createInventory();
+      //this.createInventory();
    }
 
    public static ZombiePlayer spawnInPlaceOfPlayer(ServerPlayer player) {
@@ -360,10 +363,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             ateCalmingItem();
 
             particle = null;
-         } else if (itemstack.getItem() == Items.DIAMOND_HOE) {
+         /*} else if (itemstack.getItem() == Items.DIAMOND_HOE) {
             player.sendMessage(new TextComponent("Set work center"), uuid);
             getWorkInfo().setPosWorkCenter(blockPosition());
-         } else if (itemstack.getItem() == Items.GOLDEN_HOE) {
+         */} else if (itemstack.getItem() == Items.GOLDEN_HOE) {
             if (player.isCrouching()) {
                CompoundTag tag = player.getPersistentData();
                player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 1);
@@ -381,7 +384,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   } else {
                      player.sendMessage(new TextComponent("Training ended, work starting"), uuid);
                      getWorkInfo().setPerformWork(true);
-                     restrictTo(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
+                     //restrictTo(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
                   }
 
                }
@@ -443,7 +446,31 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
                AABB aabb = getWorkInfo().getPosWorkArea();
                particle(0, 0, 1, (float)aabb.minX + 0.5F, (float)aabb.minY + 0.5F, (float)aabb.minZ + 0.5F);
-               particle(0, 0, 1, (float)aabb.maxX + 0.5F, (float)aabb.maxY + 0.5F, (float)aabb.maxZ + 0.5F);
+               particle(0, 0, 1, (float)aabb.maxX - 0.5F, (float)aabb.maxY - 0.5F, (float)aabb.maxZ - 0.5F);
+            }
+
+            boolean testProjectile = false;
+
+            if (testProjectile && level.getGameTime() % 20 == 0) {
+               //if (getMainHandItem().getItem() == Items.BOW) {
+                  //BowItem bow = (BowItem) Items.BOW;
+               ItemStack stack = getMainHandItem();
+               Item item = stack.getItem();
+
+               stack.releaseUsing(level, getFakePlayer(), item.getUseDuration(stack) - 20);
+               level.getEntities(EntityType.ARROW, this.getBoundingBox().inflate(2), Entity::isAlive).stream().forEach(entity -> entity.setOwner(this));
+               //}
+            }
+
+            if (getWorkInfo().isPerformingWork()) {
+               ItemStack test = getMainHandItem();
+               if (!getWorkInfo().getItemNeededForWork().isEmpty() && !getMainHandItem().isEmpty()) {
+                  if (!itemstackMatches(getWorkInfo().getItemNeededForWork(), getMainHandItem())) {
+                     ItemStack stack = getMainHandItem();
+                     this.spawnAtLocation(stack);
+                     this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+                  }
+               }
             }
 
             if (chestUseTime > 0 && !isDepositingInChest()) {
@@ -453,6 +480,27 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                      closeChest(posChestUsing);
                   }
                }
+            }
+
+            boolean testProjectile2 = false;
+            if (testProjectile2) {
+               if (itemUseTime == 0) {
+                  ItemStack stack = getMainHandItem();
+                  getFakePlayer().startUsingItem(InteractionHand.MAIN_HAND);
+                  //this.startUsingItem(InteractionHand.MAIN_HAND);
+               } else if (itemUseTime == 60) {
+                  //getMainHandItem().use(level, getFakePlayer(), InteractionHand.MAIN_HAND); //crossbow
+                  //getFakePlayer().stopUsingItem();
+                  //this.stopUsingItem();
+                  getFakePlayer().releaseUsingItem();
+                  level.getEntities(EntityType.ARROW, this.getBoundingBox().inflate(2), Entity::isAlive).stream().forEach(entity -> entity.setOwner(this));
+               }
+
+               itemUseTime++;
+               if (itemUseTime > 60) {
+                  itemUseTime = 0;
+               }
+
             }
 
             //getWorkInfo().setPerformWork(true);
@@ -553,252 +601,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       }
    }
 
-   protected void pickUpItemForExtraInventory(ItemEntity p_35467_) {
-      ItemStack itemstack = p_35467_.getItem();
-      //if (this.wantsToPickUp(itemstack)) {
-         SimpleContainer simplecontainer = this.getExtraInventory();
-         boolean flag = simplecontainer.canAddItem(itemstack);
-         if (!flag) {
-            return;
-         }
 
-         this.onItemPickup(p_35467_);
-         this.take(p_35467_, itemstack.getCount());
-         ItemStack itemstack1 = simplecontainer.addItem(itemstack);
-         if (itemstack1.isEmpty()) {
-            p_35467_.discard();
-         } else {
-            itemstack.setCount(itemstack1.getCount());
-         }
-      //}
-
-   }
-
-   public boolean hasAnyItemsInExtra() {
-      for(int i = 0; i < this.inventory.getContainerSize(); ++i) {
-         ItemStack itemstack = this.inventory.getItem(i);
-         if (!itemstack.isEmpty()) {
-            return true;
-         }
-      }
-      return false;
-   }
-
-   public boolean hasChestToUse() {
-      return listPosChests.size() > 0;
-   }
-
-   public boolean needsMoreWorkItem() {
-      if (getWorkInfo().getItemNeededForWork() == ItemStack.EMPTY) return false;
-      ItemStack stack = getMainHandItem();
-      if (!stack.isEmpty()) return false;
-      //if (getMainHandItem() != ItemStack.EMPTY) return false;
-      return true;
-   }
-
-   public boolean hasNeededWorkItemInExtra() {
-      for(int i = 0; i < this.inventory.getContainerSize(); ++i) {
-         ItemStack itemstack = this.inventory.getItem(i);
-         if (!itemstack.isEmpty()) {
-            if (itemstackMatches(itemstack, getWorkInfo().getItemNeededForWork())) {
-               return true;
-            }
-         }
-      }
-      return false;
-   }
-
-   public BlockPos getNearestChestWithNeededWorkItem() {
-      Iterator<BlockPos> it = listPosChests.iterator();
-      double closestDist = Double.MAX_VALUE;
-      BlockPos closestPos = BlockPos.ZERO;
-      while (it.hasNext()) {
-         BlockPos pos = it.next();
-         if (chestHasNeededWorkItem(pos)) {
-            double dist = blockPosition().distSqr(pos);
-
-            if (dist < closestDist) {
-               closestDist = dist;
-               closestPos = pos;
-            }
-         }
-      }
-      return closestPos;
-   }
-
-   public boolean chestHasNeededWorkItem(BlockPos pos) {
-      BlockEntity tile = level.getBlockEntity(pos);
-      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
-         Container inv = (Container) tile;
-         for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (itemstackMatches(stack, getWorkInfo().getItemNeededForWork())) {
-               return true;
-            }
-         }
-      }
-      return false;
-   }
-
-   public BlockPos getClosestChestPosWithSpace() {
-      Iterator<BlockPos> it = listPosChests.iterator();
-      double closestDist = Double.MAX_VALUE;
-      BlockPos closestPos = null;
-      while (it.hasNext()) {
-         BlockPos pos = it.next();
-         if (isValidChestForWork(pos, false)) {
-            double dist = blockPosition().distSqr(pos);
-
-            if (dist < closestDist) {
-               closestDist = dist;
-               closestPos = pos;
-            }
-         }
-      }
-
-      return closestPos;
-   }
-
-   /**
-    * Checks for any empty or partially full slots that we can merge into
-    *
-    * @param pos
-    * @return
-    */
-   public boolean chestHasRoom(BlockPos pos) {
-      BlockEntity tile = level.getBlockEntity(pos);
-      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
-         Container inv = (Container) tile;
-         for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack stack = inv.getItem(i);
-            if (stack.isEmpty()) {
-               return true;
-            } else {
-               if (stack.getCount() < stack.getMaxStackSize()) {
-                  for(int ii = 0; ii < getExtraInventory().getContainerSize(); ++ii) {
-                     if (!getExtraInventory().getItem(ii).isEmpty()) {
-                        if (canMergeItems(getExtraInventory().getItem(ii), stack)) {
-                           return true;
-                        }
-                     }
-                  }
-               }
-            }
-         }
-      }
-      return false;
-   }
-
-   public static boolean itemstackMatches(ItemStack item1, ItemStack item2) {
-      if (!item1.is(item2.getItem())) {
-         return false;
-      } else if (item1.getDamageValue() != item2.getDamageValue()) {
-         return false;/*
-      } else if (mergeFrom.getCount() > mergeFrom.getMaxStackSize()) {
-         return false;*/
-      } else {
-         return ItemStack.tagMatches(item1, item2);
-      }
-   }
-
-   public static boolean canMergeItems(ItemStack mergeFrom, ItemStack mergeInto) {
-      if (!mergeFrom.is(mergeInto.getItem())) {
-         return false;
-      } else if (mergeFrom.getDamageValue() != mergeInto.getDamageValue()) {
-         return false;
-      } else if (mergeFrom.getCount() > mergeFrom.getMaxStackSize()) {
-         return false;
-      } else {
-         return ItemStack.tagMatches(mergeFrom, mergeInto);
-      }
-   }
-
-   public Container getChest(BlockPos pos) {
-      BlockEntity tile = level.getBlockEntity(pos);
-      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
-         return (Container) tile;
-      }
-      return null;
-   }
-
-   public boolean takeUpTo1StackOfWorkItemFromChest(BlockPos pos) {
-      Container container = getChest(pos);
-      return takeUpTo1StackOfWorkItemFromContainer(container);
-   }
-
-   public boolean takeUpTo1StackOfWorkItemFromContainer(Container container) {
-      if (container == null) {
-         return false;
-      } else {
-         Direction direction = Direction.UP;
-         for(int i = 0; i < container.getContainerSize(); ++i) {
-            ItemStack chestItem = container.getItem(i);
-            if (!chestItem.isEmpty()) {
-               if (itemstackMatches(getWorkInfo().getItemNeededForWork(), chestItem)) {
-                  ItemStack itemstack = chestItem.copy();
-                  SimpleContainer tempContainer = new SimpleContainer(getMainHandItem());
-                  ItemStack itemstack1 = HopperBlockEntity.addItem(container, tempContainer, container.removeItem(i, 64), direction);
-                  if (itemstack1.isEmpty()) {
-                     tempContainer.setChanged();
-                  } else {
-                     container.setItem(i, itemstack);
-                  }
-
-                  //swap item from temp container into main hand now that itemstack has been topped up
-                  setItemInHand(InteractionHand.MAIN_HAND, tempContainer.getItem(0));
-
-                  if (getMainHandItem().getCount() >= getMainHandItem().getMaxStackSize()) {
-                     break;
-                  }
-               }
-            }
-         }
-
-         return false;
-      }
-   }
-
-   public boolean ejectItems(BlockPos pos) {
-      Container container = getChest(pos);
-      if (container == null) {
-         return false;
-      } else {
-         Direction direction = Direction.UP;
-         if (isFullContainer(container, direction)) {
-            return false;
-         } else {
-            for(int i = 0; i < getExtraInventory().getContainerSize(); ++i) {
-               if (!getExtraInventory().getItem(i).isEmpty()) {
-                  ItemStack itemstack = getExtraInventory().getItem(i).copy();
-                  ItemStack itemstack1 = HopperBlockEntity.addItem(getExtraInventory(), container, getExtraInventory().removeItem(i, 1), direction);
-                  if (itemstack1.isEmpty()) {
-                     container.setChanged();
-                     return true;
-                  }
-
-                  getExtraInventory().setItem(i, itemstack);
-               }
-            }
-
-            return false;
-         }
-      }
-   }
-
-   private static boolean isFullContainer(Container p_59386_, Direction p_59387_) {
-      return getSlots(p_59386_, p_59387_).allMatch((p_59379_) -> {
-         ItemStack itemstack = p_59386_.getItem(p_59379_);
-         return itemstack.getCount() >= itemstack.getMaxStackSize();
-      });
-   }
-
-   private static IntStream getSlots(Container p_59340_, Direction p_59341_) {
-      return p_59340_ instanceof WorldlyContainer ? IntStream.of(((WorldlyContainer)p_59340_).getSlotsForFace(p_59341_)) : IntStream.range(0, p_59340_.getContainerSize());
-   }
-
-
-   public SimpleContainer getExtraInventory() {
-      return this.inventory;
+   public Inventory getExtraInventory() {
+      //return this.inventory;
+      return this.getFakePlayer().getInventory();
    }
 
    public void aiStep() {
@@ -939,9 +745,12 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       compound.putLong("lastTimeStartedPlaying", lastTimeStartedPlaying);
 
-      compound.putInt("work_center_X", getWorkInfo().getPosWorkCenter().getX());
-      compound.putInt("work_center_Y", getWorkInfo().getPosWorkCenter().getY());
-      compound.putInt("work_center_Z", getWorkInfo().getPosWorkCenter().getZ());
+      compound.putDouble("work_area_X", getWorkInfo().getPosWorkArea().minX);
+      compound.putDouble("work_area_Y", getWorkInfo().getPosWorkArea().minY);
+      compound.putDouble("work_area_Z", getWorkInfo().getPosWorkArea().minZ);
+      compound.putDouble("work_area_X2", getWorkInfo().getPosWorkArea().maxX);
+      compound.putDouble("work_area_Y2", getWorkInfo().getPosWorkArea().maxY);
+      compound.putDouble("work_area_Z2", getWorkInfo().getPosWorkArea().maxZ);
 
       compound.put("work_blockstate", NbtUtils.writeBlockState(getWorkInfo().getStateWorkLastObserved()));
 
@@ -955,8 +764,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       ListTag listtag = new ListTag();
 
-      for(int i = 2; i < this.inventory.getContainerSize(); ++i) {
-         ItemStack itemstack = this.inventory.getItem(i);
+      for(int i = 2; i < this.getExtraInventory().getContainerSize(); ++i) {
+         ItemStack itemstack = this.getExtraInventory().getItem(i);
          if (!itemstack.isEmpty()) {
             CompoundTag compoundtag = new CompoundTag();
             compoundtag.putByte("Slot", (byte)i);
@@ -1008,8 +817,9 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       lastTimeStartedPlaying = compound.getLong("lastTimeStartedPlaying");
 
-      if (compound.contains("work_center_X")) {
-         getWorkInfo().setPosWorkCenter(new BlockPos(compound.getInt("work_center_X"), compound.getInt("work_center_Y"), compound.getInt("work_center_Z")));
+      if (compound.contains("work_area_X")) {
+         getWorkInfo().setPosWorkArea(new AABB(compound.getDouble("work_area_X"), compound.getDouble("work_area_Y"), compound.getDouble("work_area_Z"),
+                 compound.getDouble("work_area_X2"), compound.getDouble("work_area_Y2"), compound.getDouble("work_area_Z2")));
       }
 
       if (compound.contains("work_blockstate")) getWorkInfo().setStateWorkLastObserved(NbtUtils.readBlockState(compound.getCompound("work_blockstate")));
@@ -1022,14 +832,14 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       if (compound.contains("work_active")) getWorkInfo().setPerformWork(compound.getBoolean("work_active"));
 
-      this.createInventory();
+      //this.createInventory();
       ListTag listtag = compound.getList("Items", 10);
 
       for(int i = 0; i < listtag.size(); ++i) {
          CompoundTag compoundtag = listtag.getCompound(i);
          int j = compoundtag.getByte("Slot") & 255;
-         if (j >= 2 && j < this.inventory.getContainerSize()) {
-            this.inventory.setItem(j, ItemStack.of(compoundtag));
+         if (j >= 2 && j < this.getExtraInventory().getContainerSize()) {
+            this.getExtraInventory().setItem(j, ItemStack.of(compoundtag));
          }
       }
 
@@ -1338,11 +1148,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public void tickScanForChests() {
       if ((level.getGameTime()+this.getId()) % (20*30) != 0) return;
 
-      //CULog.dbg("scanning for chests");
-      if (gameProfile.getName().equals("PhoenixfireLune")) {
-         int asdasd = 0;
-      }
-
       Iterator<BlockPos> it = listPosChests.iterator();
       while (it.hasNext()) {
          BlockPos pos = it.next();
@@ -1578,6 +1383,306 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       return !isCalm();
    }
 
+   public boolean isDepositingInChest() {
+      return isDepositingInChest;
+   }
+
+   public void setDepositingInChest(boolean depositingInChest) {
+      isDepositingInChest = depositingInChest;
+   }
+
+   public int getWorkDistance() {
+      return 10;
+   }
+
+   @Override
+   public int getMaxSpawnClusterSize() {
+      return super.getMaxSpawnClusterSize();
+   }
+
+   public FakePlayer getFakePlayer() {
+      if (fakePlayer == null) {
+         //fakePlayer = FakePlayerFactory.get((ServerLevel) level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
+         fakePlayer = new FakePlayerInventoryProxy((ServerLevel)level, new GameProfile(UUID.randomUUID(), "Zombie_Player"), this);
+      }
+      syncFakePlayer(fakePlayer);
+      return fakePlayer;
+   }
+
+   public void syncFakePlayer() {
+      syncFakePlayer(getFakePlayer());
+   }
+
+   public void syncFakePlayer(FakePlayer player) {
+      /*Vec3 extraPos = this.getLookAngle().scale(0.5);
+      player.setPos(getX()+extraPos.x, getY()+extraPos.y, getZ()+extraPos.z);*/
+      player.setPos(getX(), getY(), getZ());
+
+      player.setYRot(this.getYHeadRot());
+      player.setXRot(this.getXRot());
+      //player.getInventory().setItem(0, new ItemStack(Items.ARROW, 64));
+   }
+
+   public FakePlayer getFakePlayer2() {
+      FakePlayer player = FakePlayerFactory.get((ServerLevel) level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
+      Vec3 extraPos = this.getLookAngle().scale(0.5);
+      player.setPos(getX()+extraPos.x, getY()+extraPos.y, getZ()+extraPos.z);
+
+      player.setYRot(this.getYHeadRot());
+      player.setXRot(this.getXRot());
+      player.getInventory().setItem(0, new ItemStack(Items.ARROW, 64));
+      return player;
+   }
+
+   /**
+    * INVENTORY METHODS
+    *
+    * stolen from HopperBlockEntity, Inventory, and maybe SimpleContainer, a bunch made from scratch for chests and extra inventory accessing
+    */
+
+   protected void pickUpItemForExtraInventory(ItemEntity p_35467_) {
+      ItemStack itemstack = p_35467_.getItem();
+      //if (this.wantsToPickUp(itemstack)) {
+      Inventory simplecontainer = this.getExtraInventory();
+      boolean flag = canAddItem(simplecontainer, itemstack);
+      if (!flag) {
+         return;
+      }
+
+      this.onItemPickup(p_35467_);
+      this.take(p_35467_, itemstack.getCount());
+      ItemStack itemstack1 = addItem(simplecontainer, itemstack);
+      if (itemstack1.isEmpty()) {
+         p_35467_.discard();
+      } else {
+         itemstack.setCount(itemstack1.getCount());
+      }
+      //}
+
+   }
+
+   public boolean hasAnyItemsInExtra() {
+      for(int i = 0; i < this.getExtraInventory().getContainerSize(); ++i) {
+         ItemStack itemstack = this.getExtraInventory().getItem(i);
+         if (!itemstack.isEmpty()) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   public boolean hasChestToUse() {
+      return listPosChests.size() > 0;
+   }
+
+   public boolean needsMoreWorkItem() {
+      if (getWorkInfo().getItemNeededForWork().isEmpty()) return false;
+      ItemStack stack = getMainHandItem();
+      if (!stack.isEmpty()) return false;
+      //if (getMainHandItem() != ItemStack.EMPTY) return false;
+      return true;
+   }
+
+   public boolean hasNeededWorkItemInExtra() {
+      for(int i = 0; i < this.getExtraInventory().getContainerSize(); ++i) {
+         ItemStack itemstack = this.getExtraInventory().getItem(i);
+         if (!itemstack.isEmpty()) {
+            if (itemstackMatches(itemstack, getWorkInfo().getItemNeededForWork())) {
+               return true;
+            }
+         }
+      }
+      return false;
+   }
+
+   public BlockPos getNearestChestWithNeededWorkItem() {
+      Iterator<BlockPos> it = listPosChests.iterator();
+      double closestDist = Double.MAX_VALUE;
+      BlockPos closestPos = BlockPos.ZERO;
+      while (it.hasNext()) {
+         BlockPos pos = it.next();
+         if (chestHasNeededWorkItem(pos)) {
+            double dist = blockPosition().distSqr(pos);
+
+            if (dist < closestDist) {
+               closestDist = dist;
+               closestPos = pos;
+            }
+         }
+      }
+      return closestPos;
+   }
+
+   public boolean chestHasNeededWorkItem(BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
+         Container inv = (Container) tile;
+         for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (itemstackMatches(stack, getWorkInfo().getItemNeededForWork())) {
+               return true;
+            }
+         }
+      }
+      return false;
+   }
+
+   public BlockPos getClosestChestPosWithSpace() {
+      Iterator<BlockPos> it = listPosChests.iterator();
+      double closestDist = Double.MAX_VALUE;
+      BlockPos closestPos = BlockPos.ZERO;
+      while (it.hasNext()) {
+         BlockPos pos = it.next();
+         if (isValidChestForWork(pos, false)) {
+            double dist = blockPosition().distSqr(pos);
+
+            if (dist < closestDist) {
+               closestDist = dist;
+               closestPos = pos;
+            }
+         }
+      }
+
+      return closestPos;
+   }
+
+   /**
+    * Checks for any empty or partially full slots that we can merge into
+    *
+    * @param pos
+    * @return
+    */
+   public boolean chestHasRoom(BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
+         Container inv = (Container) tile;
+         for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (stack.isEmpty()) {
+               return true;
+            } else {
+               if (stack.getCount() < stack.getMaxStackSize()) {
+                  for(int ii = 0; ii < getExtraInventory().getContainerSize(); ++ii) {
+                     if (!getExtraInventory().getItem(ii).isEmpty()) {
+                        if (canMergeItems(getExtraInventory().getItem(ii), stack)) {
+                           return true;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+      return false;
+   }
+
+   public static boolean itemstackMatches(ItemStack item1, ItemStack item2) {
+      if (!item1.is(item2.getItem())) {
+         return false;
+      } else if (item1.getDamageValue() != item2.getDamageValue()) {
+         return false;/*
+      } else if (mergeFrom.getCount() > mergeFrom.getMaxStackSize()) {
+         return false;*/
+      } else {
+         return ItemStack.tagMatches(item1, item2);
+      }
+   }
+
+   public static boolean canMergeItems(ItemStack mergeFrom, ItemStack mergeInto) {
+      if (!mergeFrom.is(mergeInto.getItem())) {
+         return false;
+      } else if (mergeFrom.getDamageValue() != mergeInto.getDamageValue()) {
+         return false;
+      } else if (mergeFrom.getCount() > mergeFrom.getMaxStackSize()) {
+         return false;
+      } else {
+         return ItemStack.tagMatches(mergeFrom, mergeInto);
+      }
+   }
+
+   public Container getChest(BlockPos pos) {
+      BlockEntity tile = level.getBlockEntity(pos);
+      if (tile instanceof ChestBlockEntity && tile instanceof Container) {
+         return (Container) tile;
+      }
+      return null;
+   }
+
+   public boolean takeUpTo1StackOfWorkItemFromChest(BlockPos pos) {
+      Container container = getChest(pos);
+      return takeUpTo1StackOfWorkItemFromContainer(container);
+   }
+
+   public boolean takeUpTo1StackOfWorkItemFromContainer(Container container) {
+      if (container == null) {
+         return false;
+      } else {
+         Direction direction = Direction.UP;
+         for(int i = 0; i < container.getContainerSize(); ++i) {
+            ItemStack chestItem = container.getItem(i);
+            if (!chestItem.isEmpty()) {
+               if (itemstackMatches(getWorkInfo().getItemNeededForWork(), chestItem)) {
+                  ItemStack itemstack = chestItem.copy();
+                  SimpleContainer tempContainer = new SimpleContainer(getMainHandItem());
+                  ItemStack itemstack1 = HopperBlockEntity.addItem(container, tempContainer, container.removeItem(i, 64), direction);
+                  if (itemstack1.isEmpty()) {
+                     tempContainer.setChanged();
+                  } else {
+                     container.setItem(i, itemstack);
+                  }
+
+                  //swap item from temp container into main hand now that itemstack has been topped up
+                  setItemInHand(InteractionHand.MAIN_HAND, tempContainer.getItem(0));
+
+                  if (getMainHandItem().getCount() >= getMainHandItem().getMaxStackSize()) {
+                     break;
+                  }
+               }
+            }
+         }
+
+         return false;
+      }
+   }
+
+   public boolean ejectItems(BlockPos pos) {
+      Container container = getChest(pos);
+      if (container == null) {
+         return false;
+      } else {
+         Direction direction = Direction.UP;
+         if (isFullContainer(container, direction)) {
+            return false;
+         } else {
+            for(int i = 0; i < getExtraInventory().getContainerSize(); ++i) {
+               if (!getExtraInventory().getItem(i).isEmpty()) {
+                  ItemStack itemstack = getExtraInventory().getItem(i).copy();
+                  ItemStack itemstack1 = HopperBlockEntity.addItem(getExtraInventory(), container, getExtraInventory().removeItem(i, 1), direction);
+                  if (itemstack1.isEmpty()) {
+                     container.setChanged();
+                     return true;
+                  }
+
+                  getExtraInventory().setItem(i, itemstack);
+               }
+            }
+
+            return false;
+         }
+      }
+   }
+
+   private static boolean isFullContainer(Container p_59386_, Direction p_59387_) {
+      return getSlots(p_59386_, p_59387_).allMatch((p_59379_) -> {
+         ItemStack itemstack = p_59386_.getItem(p_59379_);
+         return itemstack.getCount() >= itemstack.getMaxStackSize();
+      });
+   }
+
+   private static IntStream getSlots(Container p_59340_, Direction p_59341_) {
+      return p_59340_ instanceof WorldlyContainer ? IntStream.of(((WorldlyContainer)p_59340_).getSlotsForFace(p_59341_)) : IntStream.range(0, p_59340_.getContainerSize());
+   }
+
    private net.minecraftforge.common.util.LazyOptional<?> itemHandler = null;
 
    @Override
@@ -1598,32 +1703,32 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean hasInventoryChanged(Container p_149512_) {
-      return this.inventory != p_149512_;
+      return this.getExtraInventory() != p_149512_;
    }
 
    protected int getInventorySize() {
-      return 9*3;
+      return 9*4;
    }
 
-   protected void createInventory() {
-      SimpleContainer simplecontainer = this.inventory;
+   /*protected void createInventory() {
+      SimpleContainer simplecontainer = this.getExtraInventory();
       this.inventory = new SimpleContainer(this.getInventorySize());
       if (simplecontainer != null) {
          simplecontainer.removeListener(this);
-         int i = Math.min(simplecontainer.getContainerSize(), this.inventory.getContainerSize());
+         int i = Math.min(simplecontainer.getContainerSize(), this.getExtraInventory().getContainerSize());
 
          for(int j = 0; j < i; ++j) {
             ItemStack itemstack = simplecontainer.getItem(j);
             if (!itemstack.isEmpty()) {
-               this.inventory.setItem(j, itemstack.copy());
+               this.getExtraInventory().setItem(j, itemstack.copy());
             }
          }
       }
 
-      this.inventory.addListener(this);
+      this.getExtraInventory().addListener(this);
       this.updateContainerEquipment();
-      this.itemHandler = net.minecraftforge.common.util.LazyOptional.of(() -> new net.minecraftforge.items.wrapper.InvWrapper(this.inventory));
-   }
+      this.itemHandler = net.minecraftforge.common.util.LazyOptional.of(() -> new net.minecraftforge.items.wrapper.InvWrapper(this.getExtraInventory()));
+   }*/
 
    public boolean isWithinWorkArea(BlockPos pos) {
       return getWorkInfo().getPosWorkArea().contains(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F);
@@ -1631,7 +1736,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    protected void updateContainerEquipment() {
       /*if (!this.level.isClientSide) {
-         this.setFlag(4, !this.inventory.getItem(0).isEmpty());
+         this.setFlag(4, !this.getExtraInventory().getItem(0).isEmpty());
       }*/
    }
 
@@ -1645,20 +1750,72 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    }
 
-   public boolean isDepositingInChest() {
-      return isDepositingInChest;
+   public boolean canAddItem(Inventory container, ItemStack p_19184_) {
+      boolean flag = false;
+
+      for(ItemStack itemstack : container.items) {
+         if (itemstack.isEmpty() || ItemStack.isSameItemSameTags(itemstack, p_19184_) && itemstack.getCount() < itemstack.getMaxStackSize()) {
+            flag = true;
+            break;
+         }
+      }
+
+      return flag;
    }
 
-   public void setDepositingInChest(boolean depositingInChest) {
-      isDepositingInChest = depositingInChest;
+   public ItemStack addItem(Inventory inventory, ItemStack p_19174_) {
+      ItemStack itemstack = p_19174_.copy();
+      this.moveItemToOccupiedSlotsWithSameType(inventory, itemstack);
+      if (itemstack.isEmpty()) {
+         return ItemStack.EMPTY;
+      } else {
+         this.moveItemToEmptySlots(inventory, itemstack);
+         return itemstack.isEmpty() ? ItemStack.EMPTY : itemstack;
+      }
    }
 
-   public int getWorkDistance() {
-      return 10;
+   private void moveItemToOccupiedSlotsWithSameType(Inventory inventory, ItemStack p_19192_) {
+      for(int i = 0; i < inventory.getContainerSize(); ++i) {
+         ItemStack itemstack = inventory.getItem(i);
+         if (ItemStack.isSameItemSameTags(itemstack, p_19192_)) {
+            this.moveItemsBetweenStacks(inventory, p_19192_, itemstack);
+            if (p_19192_.isEmpty()) {
+               return;
+            }
+         }
+      }
+
+   }
+
+   private void moveItemsBetweenStacks(Inventory inventory, ItemStack p_19186_, ItemStack p_19187_) {
+      int i = Math.min(inventory.getMaxStackSize(), p_19187_.getMaxStackSize());
+      int j = Math.min(p_19186_.getCount(), i - p_19187_.getCount());
+      if (j > 0) {
+         p_19187_.grow(j);
+         p_19186_.shrink(j);
+         inventory.setChanged();
+      }
+
+   }
+
+   private void moveItemToEmptySlots(Inventory inventory, ItemStack p_19190_) {
+      for(int i = 0; i < inventory.getContainerSize(); ++i) {
+         ItemStack itemstack = inventory.getItem(i);
+         if (itemstack.isEmpty()) {
+            inventory.setItem(i, p_19190_.copy());
+            p_19190_.setCount(0);
+            return;
+         }
+      }
+
    }
 
    @Override
-   public int getMaxSpawnClusterSize() {
-      return super.getMaxSpawnClusterSize();
+   protected boolean canReplaceCurrentItem(ItemStack p_21428_, ItemStack p_21429_) {
+      //might break armor equipping while working
+      if (getMainHandItem().isEmpty() && getWorkInfo().isPerformingWork() && getWorkInfo().getItemNeededForWork() != ItemStack.EMPTY && itemstackMatches(getWorkInfo().getItemNeededForWork(), p_21428_)) {
+         return false;
+      }
+      return super.canReplaceCurrentItem(p_21428_, p_21429_);
    }
 }
