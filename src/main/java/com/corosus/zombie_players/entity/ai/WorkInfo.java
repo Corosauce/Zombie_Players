@@ -11,9 +11,10 @@ import net.minecraft.world.phys.BlockHitResult;
 
 public class WorkInfo {
 
+    public static AABB CENTER_ZERO = new AABB(0, 0, 0, 0, 0, 0);
+
     private boolean performWork = false;
-    //private BlockPos posWorkCenter = BlockPos.ZERO;
-    private AABB posWorkArea = new AABB(0, 0, 0, 0, 0, 0);
+    private AABB posWorkArea = CENTER_ZERO;
     private BlockState stateWorkLastObserved = Blocks.AIR.defaultBlockState();
     private ItemStack itemNeededForWork = ItemStack.EMPTY;
     private EnumTrainType workClickLastObserved = EnumTrainType.BLOCK_LEFT_CLICK;
@@ -22,14 +23,6 @@ public class WorkInfo {
     private boolean inAreaSetMode = false;
     private BlockPos workAreaPos1 = BlockPos.ZERO;
     private BlockHitResult blockHitResult = null;
-
-    /*public BlockPos getPosWorkCenter() {
-        return posWorkCenter;
-    }*/
-
-    /*public void setPosWorkCenter(BlockPos posWorkCenter) {
-        this.posWorkCenter = posWorkCenter;
-    }*/
 
     public BlockState getStateWorkLastObserved() {
         return stateWorkLastObserved;

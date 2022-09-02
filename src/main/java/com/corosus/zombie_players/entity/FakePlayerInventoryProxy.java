@@ -35,4 +35,9 @@ public class FakePlayerInventoryProxy extends FakePlayer {
         return getMainHandItem().getUseDuration() - 20;
         //return super.getUseItemRemainingTicks();
     }
+
+    @Override
+    public float getAttackStrengthScale(float p_36404_) {
+        return 1F;
+    }
 }

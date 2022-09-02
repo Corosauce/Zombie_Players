@@ -61,6 +61,8 @@ public class NearestAttackableTargetGoalIfCalm<T extends LivingEntity> extends T
          }
       }
 
+      if (!entity.isWithinRestriction()) return false;
+
       if (entity.getCalmTime() > 0 && entity.isHealthLow()) {
          return false;
       }

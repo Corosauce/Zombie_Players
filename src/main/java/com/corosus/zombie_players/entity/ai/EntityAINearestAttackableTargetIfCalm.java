@@ -127,6 +127,8 @@ public class EntityAINearestAttackableTargetIfCalm<T extends LivingEntity> exten
             return false;
         }
 
+        if (entity.getWorkInfo().isInTrainingMode()/* || entity.getWorkInfo().isInAreaSetMode()*/) return false;
+
         if (this.targetChance > 0 && CU.rand().nextInt(this.targetChance) != 0)
         {
             return false;

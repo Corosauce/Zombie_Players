@@ -25,6 +25,8 @@ public class Zombie_Players {
 
     public static List<Item> listCalmingItems = new ArrayList<>();
 
+    public static boolean matchAnyFood = false;
+
     public static ConfigZombiePlayersAdvanced configDev = new ConfigZombiePlayersAdvanced();
 
     public Zombie_Players() {

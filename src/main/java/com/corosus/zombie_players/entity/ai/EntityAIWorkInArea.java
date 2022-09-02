@@ -23,6 +23,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
@@ -46,21 +47,14 @@ public class EntityAIWorkInArea extends Goal
 
     private int walkingTimeout;
     private int repathPentalty = 0;
-    //private long stuckTimeout = 0;
-    //private long stuckTimeoutAmount = 100;
 
     private int lookUpdateTimer = 0;
 
-    private float missingHealthToHeal = 5;
-
-    //private BlockPos posCachedBestChest = null;
-
     private BlockPos posCurrentWorkTarget = BlockPos.ZERO;
     private BlockPos posNextWorkTarget = BlockPos.ZERO;
-
-    //private BlockState stateWork = null;
-
-    //private BlockPos posWorkCenter = BlockPos.ZERO;
+    private BlockPos posLastBadPath = BlockPos.ZERO;
+    private long lastBadPathTime = 0;
+    private long lastBadPathCooldown = 20*10;
 
     private long scanCooldownAmount = 5;
     private long scanNextTickWork = 0;
@@ -71,54 +65,8 @@ public class EntityAIWorkInArea extends Goal
     private int curScanRange = 3;
     private int curAngle = 0;
 
-    /**
-     * need to likely target only specific states to match, so we need a basic mapping of state to lookup depending on the type of block, maybe tag to states
-     *
-     * crops
-     * - block
-     * - CropBlock.AGE and whatever their state was when player told zombie player to look for
-     *
-     * logs
-     * - block
-     * - veinmine
-     *
-     * cactus, sugar cane
-     * - block
-     * - dont mine bottom piece
-     *
-     * berry bush
-     * - right click
-     *
-     * sheep
-     * - entitytype / top level class
-     * - uhhhhh i guess custom case of checking if they have wool?
-     * - shear
-     *
-     * - maybe a timer where it will try to interact with entities every x mins
-     *
-     * animals:
-     * - entitytype
-     * - breed them
-     *
-     * cow:
-     * - milk them
-     *
-     *
-     * - a universal solution for entities right click it seeming like a delay
-     * -- item to set delay
-     * -- internally zombie player will map each entity instance to last time tried work on it, so it will do the work fast on each entity then wait
-     *
-     * - for killing animals, not sure what would be better than timer without adding more and more complexity
-     *
-     */
-
-    //public static HashMap<Block, Property> lookupBlockToKeyProperty = new HashMap<>();
     public static HashMap<Class, BlockInfo> lookupBlockClassToBlockInfo = new HashMap<>();
     public static HashMap<String, BlockInfo> lookupBlockTagToBlockInfo = new HashMap<>();
-    //public static HashMap<Block, Property> lookupBlockToKeyPropertyValue = new HashMap<>();
-
-    //public static HashMap<Class, EnumBlockBreakBehaviorType> lookupBlockClassToBehaviorType = new HashMap<>();
-
 
     static class BlockInfo {
         public Property property;
@@ -131,10 +79,6 @@ public class EntityAIWorkInArea extends Goal
     }
 
     static {
-        //lookupBlockToKeyProperty.put(Blocks.WHEAT, CropBlock.AGE);
-        //lookupBlockClassToKeyProperty.put(CropBlock.class, CropBlock.AGE);
-        //lookupBlockToKeyPropertyValue.put(Blocks.WHEAT, CropBlock.AGE);
-
         //TODO: data driven style like: "minecraft:wheat[age=7]", see quark SimpleHarvestModule
 
         add(CropBlock.class, CropBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
@@ -145,13 +89,9 @@ public class EntityAIWorkInArea extends Goal
         add(GrowingPlantBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
         add(BambooBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
         add(SweetBerryBushBlock.class, SweetBerryBushBlock.AGE, EnumBlockBreakBehaviorType.BREAK_NORMAL);
-        //add(CaveVinesBlock.class, CaveVinesBlock.BERRIES, EnumBlockBreakBehaviorType.BREAK_NORMAL);
-        //add(CaveVinesPlantBlock.class, CaveVinesBlock.BERRIES, EnumBlockBreakBehaviorType.BREAK_NORMAL);
 
         add("logs", null, EnumBlockBreakBehaviorType.BREAK_VEINMINE_TREE);
         add("cave_vines", CaveVinesBlock.BERRIES, EnumBlockBreakBehaviorType.BREAK_NORMAL);
-
-
     }
 
     public static void add(String tag, Property property, EnumBlockBreakBehaviorType behaviorType) {
@@ -162,15 +102,10 @@ public class EntityAIWorkInArea extends Goal
         lookupBlockClassToBlockInfo.put(clazz, new BlockInfo(property, behaviorType));
     }
 
-    /*public static BlockInfo getInfo(BlockState state) {
-        if (state.)
-    }*/
-
     public EntityAIWorkInArea(ZombiePlayer entityObjIn)
     {
         this.entityObj = entityObjIn;
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
-        //stateWork = Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, CropBlock.MAX_AGE);
     }
 
     /**
@@ -179,14 +114,11 @@ public class EntityAIWorkInArea extends Goal
     @Override
     public boolean canUse()
     {
-
-        //if (true) return false;
         if (entityObj.isDepositingInChest()) return false;
 
         if (entityObj.needsMoreWorkItem()) return false;
 
-        //posCurrentWorkTarget = BlockPos.ZERO;
-        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || jobCompleteCooldown >= entityObj.getLevel().getGameTime() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
+        if (!entityObj.isCalm() || entityObj.getWorkInfo().isInTrainingMode() || entityObj.getWorkInfo().isInAreaSetMode() || jobCompleteCooldown >= entityObj.getLevel().getGameTime() || entityObj.getWorkInfo().getStateWorkLastObserved().getBlock() == Blocks.AIR) return false;
         if (posNextWorkTarget != BlockPos.ZERO) {
             //CULog.dbg("using quickly found next work target");
             posCurrentWorkTarget = posNextWorkTarget;
@@ -239,7 +171,6 @@ public class EntityAIWorkInArea extends Goal
 
         int range = curScanRange;
 
-        //for (int angle = 0; angle < 360; angle+=1) {
         boolean looked = false;
         for (int angleTicks = 0; angleTicks < 90; angleTicks+=1) {
             curAngle += 1;
@@ -252,16 +183,16 @@ public class EntityAIWorkInArea extends Goal
             lastZ = z;
 
             //CULog.dbg("scan " + x + " - " + z);
-            boolean dbgScan = true;
+            boolean dbgScan = entityObj.isShowWorkInfo();
             if (dbgScan) {
                 BlockPos pos = this.entityObj.blockPosition().offset(x, 0, z);
-                ((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+                ((ServerLevel)entityObj.level).sendParticles(new DustParticleOptions(new Vector3f(0, 1, 0), 1f), pos.getX() + 0.5, pos.getY() - 4, pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+                ((ServerLevel)entityObj.level).sendParticles(new DustParticleOptions(new Vector3f(0, 1, 0), 1f), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+                ((ServerLevel)entityObj.level).sendParticles(new DustParticleOptions(new Vector3f(0, 1, 0), 1f), pos.getX() + 0.5, pos.getY() + (getWorkDistance()/2), pos.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
             }
 
             for (int y = -4; y <= getWorkDistance()/2; y++) {
-            //for (int y = -getWorkDistance()/2; y <= getWorkDistance()/2; y++) {
 
-                //BlockPos pos = this.entityObj.getWorkInfo().getPosWorkCenter().offset(x, y, z);
                 BlockPos pos = this.entityObj.blockPosition().offset(x, y, z);
 
                 if (!looked) {
@@ -291,6 +222,8 @@ public class EntityAIWorkInArea extends Goal
 
     public boolean isValidWorkBlock(BlockPos pos) {
 
+        if (shouldSkipPos(pos)) return false;
+
         if (!entityObj.getWorkInfo().getPosWorkArea().contains(pos.getX(), pos.getY(), pos.getZ())) return false;
 
         BlockState state = entityObj.level.getBlockState(pos);
@@ -315,8 +248,6 @@ public class EntityAIWorkInArea extends Goal
                 foundRuleForBlock = true;
             }
 
-            //at this point, fallback to basic break or right click for target block
-            //TODO: exclude things in lists that match block but dont match state
             if (!foundRuleForBlock) {
                 successfullMatchPhase1 = true;
             }
@@ -326,26 +257,13 @@ public class EntityAIWorkInArea extends Goal
                     successfullMatchPhase1 = true;
                 }
                 if (state.hasProperty(info.property)) {
-                    //cleanse target and desired block to be only block + compared property
-                    //- this is still bad cause if were depending on tags, the blocks could mismatch and we need to allow that
-                    BlockState desiredBlockWithOnlySpecificComparedState = entityObj.getWorkInfo().getStateWorkLastObserved().getBlock().defaultBlockState()
-                            .setValue(info.property, entityObj.getWorkInfo().getStateWorkLastObserved().getValue(info.property));
-                    BlockState blockWithOnlySpecificComparedState = state.getBlock().defaultBlockState().setValue(info.property, state.getValue(info.property));
 
-                    //CULog.dbg("blockWithOnlySpecificComparedState: " + blockWithOnlySpecificComparedState + " vs " + desiredBlockWithOnlySpecificComparedState + " - " + pos);
-
-                    //compare targeted properties, since the block/tag matches from this point
+                    //compare only targeted properties, since the block/tag matches from this point
                     if (entityObj.getWorkInfo().getStateWorkLastObserved().hasProperty(info.property) &&
                             entityObj.getWorkInfo().getStateWorkLastObserved().getValue(info.property) ==
                     state.getValue(info.property)) {
                         successfullMatchPhase1 = true;
                     }
-
-
-
-                    /*if (blockWithOnlySpecificComparedState == desiredBlockWithOnlySpecificComparedState) {
-                        successfullMatchPhase1 = true;
-                    }*/
                 }
             }
 
@@ -371,8 +289,6 @@ public class EntityAIWorkInArea extends Goal
                     }
                 }
 
-                //if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
-                //lets try requiring air next to spot ONLY for blocks that have specificly set break operation rules
                 if (!foundRuleForBlock) {
 
                     if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
@@ -384,13 +300,7 @@ public class EntityAIWorkInArea extends Goal
                         }
                     }
 
-                    //allow left click breaking to just work
-
-                    /*if (entityObj.getWorkInfo().getWorkClickDirectionLastObserved() == Direction.UP) {
-                        if (!entityObj.level.getBlockState(pos.above()).isAir()) {
-                            return false;
-                        }
-                    }*/
+                    //allow left click breaking to just work, so no check here for that
                 }
 
                 CULog.dbg("found valid work block!: " + entityObj.level.getBlockState(pos));
@@ -421,16 +331,9 @@ public class EntityAIWorkInArea extends Goal
     public void tick() {
         super.tick();
 
-        //if (jobCompleteCooldown >= entityObj.getLevel().getGameTime()) return;
-
-        /*if (hasFoodSource(entityObj.inventory)) {
-            consumeOneStackSizeOfFood(entityObj.inventory);
-            entityObj.heal(5);
-            entityObj.world.playSound(null, entityObj.getPosition(), SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.NEUTRAL, 1F, 1F);
-            return;
-        }*/
-
-        ((ServerLevel)entityObj.level).sendParticles(DustParticleOptions.REDSTONE, posCurrentWorkTarget.getX() + 0.5, posCurrentWorkTarget.getY() + 0.5, posCurrentWorkTarget.getZ() + 0.5, 1, 0.3D, 0D, 0.3D, 1D);
+        if (entityObj.isShowWorkInfo()) {
+            ((ServerLevel) entityObj.level).sendParticles(DustParticleOptions.REDSTONE, posCurrentWorkTarget.getX() + 0.5, posCurrentWorkTarget.getY() + 0.5, posCurrentWorkTarget.getZ() + 0.5, 2, 0.5D, 0.5D, 0.5D, 1D);
+        }
 
         if (!posCurrentWorkTarget.equals(BlockPos.ZERO)) {
             boolean isClose = false;
@@ -441,14 +344,8 @@ public class EntityAIWorkInArea extends Goal
                 return;
             }
 
-            //prevent walking into the fire
             double dist = entityObj.position().distanceTo(new Vec3(blockposGoal.getX(), blockposGoal.getY(), blockposGoal.getZ()));
             if (dist <= 3.8D) {
-                //entityObj.openChest(posCachedBestChest);
-                /*for (int i = 0; i < 5 && entityObj.getHealth() < entityObj.getMaxHealth(); i++) {
-                    consumeOneStackSizeOfFoodAtChest();
-                    entityObj.ateCalmingItem(true);
-                }*/
                 if (operateOnTargetPosition(blockposGoal)) {
                     posNextWorkTarget = quickFindNeighborWorkBlock(posCurrentWorkTarget);
 
@@ -475,14 +372,12 @@ public class EntityAIWorkInArea extends Goal
                             success = this.entityObj.getNavigation().moveTo(vec3d.x, vec3d.y, vec3d.z, 1.3D);
                         }
                     } else {
-                        //success = this.entityObj.getNavigation().moveTo((double) i + 0.5D, (double) j, (double) k + 0.5D, 1.0D);
                         success = tryMoveToOpenSpotNextTo(new BlockPos(i, j, k));
                     }
 
                     if (!success) {
                         repathPentalty = 40;
                     } else {
-                        //stuckTimeout = entityObj.level.getGameTime();
                         walkingTimeout = walkingTimeoutMax;
                     }
                 } else {
@@ -493,23 +388,26 @@ public class EntityAIWorkInArea extends Goal
 
                         if (walkingTimeout < walkingTimeoutMax / 4 * 3) {
                             if (walkingTimeout % 4 == 0) {
-                                for (int i = 0; i < 2; i++) {
+                                for (int y = 0; y <= 2; y++) {
                                     for (int x = -1; x < 2; x++) {
-                                        trimLeaves(entityObj.blockPosition().offset(x, i, 0));
-                                        trimLeaves(entityObj.blockPosition().offset(x, i, 0));
-                                        trimLeaves(entityObj.blockPosition().offset(x, i, 0));
-                                        trimLeaves(entityObj.blockPosition().offset(x, i, 0));
+                                        trimLeaves(entityObj.blockPosition().offset(x, y, 0));
+                                        trimLeaves(entityObj.blockPosition().offset(x, y, 0));
+                                        trimLeaves(entityObj.blockPosition().offset(x, y, 0));
+                                        trimLeaves(entityObj.blockPosition().offset(x, y, 0));
 
-                                        trimLeaves(entityObj.blockPosition().offset(0, i, x));
-                                        trimLeaves(entityObj.blockPosition().offset(0, i, x));
-                                        trimLeaves(entityObj.blockPosition().offset(0, i, x));
-                                        trimLeaves(entityObj.blockPosition().offset(0, i, x));
+                                        trimLeaves(entityObj.blockPosition().offset(0, y, x));
+                                        trimLeaves(entityObj.blockPosition().offset(0, y, x));
+                                        trimLeaves(entityObj.blockPosition().offset(0, y, x));
+                                        trimLeaves(entityObj.blockPosition().offset(0, y, x));
                                     }
 
                                 }
                             }
                         }
                     } else {
+
+                        lastBadPathTime = entityObj.level.getGameTime() + lastBadPathCooldown;
+                        posLastBadPath = entityObj.getNavigation().getTargetPos();
                         stop();
                     }
                 }
@@ -552,7 +450,6 @@ public class EntityAIWorkInArea extends Goal
     public void start()
     {
         super.start();
-        //this.insidePosX = -1;
         //reset any previous path so tick can start with a fresh path
         this.entityObj.getNavigation().stop();
     }
@@ -569,7 +466,6 @@ public class EntityAIWorkInArea extends Goal
         posCurrentWorkTarget = BlockPos.ZERO;
         //posNextWorkTarget = BlockPos.ZERO;
         curScanRange = 1;
-        //stuckTimeout = 0;
     }
 
     public boolean operateOnTargetPosition(BlockPos pos) {
@@ -577,24 +473,24 @@ public class EntityAIWorkInArea extends Goal
         BlockState state = entityObj.level.getBlockState(pos);
         if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
             FakePlayer fakePlayer = entityObj.getFakePlayer();
-            /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
-                    BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
-
-            /*entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(fakePlayer, InteractionHand.MAIN_HAND,
-                    BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));*/
-
-            //TODO: conflict here, item in hand seed, block to hit compost, we need
 
             if (!entityObj.getMainHandItem().isEmpty()) {
-                InteractionResult result = entityObj.getItemInHand(InteractionHand.MAIN_HAND).getItem().useOn(new UseOnContext(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getMainHandItem(),
-                        BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));
-                if (result == InteractionResult.PASS || result == InteractionResult.FAIL) {
-                    if (entityObj.getWorkInfo().getBlockHitResult() != null) {
-                        state.use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getWorkInfo().getBlockHitResult());
+                //these 3 calls are based on the player interaction logic order that starts in Minecraft.startUseItem
+                InteractionResult result = InteractionResult.PASS;
+                if (entityObj.getWorkInfo().getBlockHitResult() != null) {
+                    result = state.use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getWorkInfo().getBlockHitResult());
+                    performedAction = true;
+                }
+                if (!result.consumesAction()) {
+                    result = entityObj.getMainHandItem().useOn(new UseOnContext(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, entityObj.getMainHandItem(),
+                            BlockHitResult.miss(new Vec3(pos.getX(), pos.getY(), pos.getZ()), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos)));
+                    performedAction = true;
+                }
+                if (!result.consumesAction()) {
+                    InteractionResultHolder resultHolder = entityObj.getMainHandItem().use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND);
+                    if (resultHolder.getResult().consumesAction()) {
                         performedAction = true;
                     }
-                } else {
-                    performedAction = true;
                 }
             } else {
                 if (entityObj.getWorkInfo().getBlockHitResult() != null) {
@@ -656,6 +552,7 @@ public class EntityAIWorkInArea extends Goal
 
         jobCompleteCooldown = entityObj.level.getGameTime() + jobCompleteCooldownValue;
         jobCompleteCooldown = entityObj.level.getGameTime() + 30;
+        posLastBadPath = BlockPos.ZERO;
 
         curScanRange = 1;
 
@@ -697,5 +594,12 @@ public class EntityAIWorkInArea extends Goal
             return completedJobPos;
         }
         return BlockPos.ZERO;
+    }
+
+    public boolean shouldSkipPos(BlockPos pos) {
+        if (entityObj.level.getGameTime() < lastBadPathTime) {
+            if (pos == posLastBadPath) return true;
+        }
+        return false;
     }
 }

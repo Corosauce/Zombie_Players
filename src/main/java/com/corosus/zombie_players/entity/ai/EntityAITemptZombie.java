@@ -1,8 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.zombie_players.Zombie_Players;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Mob;
+import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -12,7 +10,7 @@ import java.util.EnumSet;
 public class EntityAITemptZombie extends Goal
 {
     /** The entity using this AI that is tempted by the player. */
-    private final Mob temptedEntity;
+    private final ZombiePlayer temptedEntity;
     private final double speed;
     /** X position of player tempting this mob */
     private double targetX;
@@ -42,7 +40,7 @@ public class EntityAITemptZombie extends Goal
         this(temptedEntityIn, speedIn, scaredByPlayerMovementIn, Sets.newHashSet(temptItemIn));
     }*/
 
-    public EntityAITemptZombie(Mob temptedEntityIn, double speedIn, boolean scaredByPlayerMovementIn/*, Set<Item> temptItemIn*/)
+    public EntityAITemptZombie(ZombiePlayer temptedEntityIn, double speedIn, boolean scaredByPlayerMovementIn/*, Set<Item> temptItemIn*/)
     {
         this.temptedEntity = temptedEntityIn;
         this.speed = speedIn;
@@ -79,7 +77,7 @@ public class EntityAITemptZombie extends Goal
 
     protected boolean isTempting(ItemStack stack)
     {
-        return Zombie_Players.listCalmingItems.contains(stack.getItem());//this.temptItem.contains(stack.getItem());
+        return temptedEntity.isCalmingItem(stack);
     }
 
     /**

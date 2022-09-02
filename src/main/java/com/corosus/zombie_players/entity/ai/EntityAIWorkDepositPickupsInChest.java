@@ -158,7 +158,7 @@ public class EntityAIWorkDepositPickupsInChest extends Goal
 
     public boolean verifyOrGetNewChest() {
         if (posCachedBestChest == BlockPos.ZERO) return false;
-        if (!entityObj.isValidChestForWork(posCachedBestChest, false)) {
+        if (!entityObj.isValidChestForWork(posCachedBestChest, false) && !entityObj.isValidChestForFood(posCachedBestChest, false)) {
             posCachedBestChest = entityObj.getClosestChestPosWithSpace();
         }
         return posCachedBestChest != BlockPos.ZERO;

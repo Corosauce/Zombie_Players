@@ -7,11 +7,17 @@ import net.minecraft.world.entity.monster.Zombie;
 
 public class EntityAIZombieAttackWeaponReach extends ZombieAttackGoal {
 
-    private final Zombie zombie;
+    private final ZombiePlayer zombie;
 
-    public EntityAIZombieAttackWeaponReach(Zombie zombieIn, double speedIn, boolean longMemoryIn) {
+    public EntityAIZombieAttackWeaponReach(ZombiePlayer zombieIn, double speedIn, boolean longMemoryIn) {
         super(zombieIn, speedIn, longMemoryIn);
         this.zombie = zombieIn;
+    }
+
+    @Override
+    public boolean canUse() {
+        if (zombie.getWorkInfo().isInTrainingMode() || zombie.getWorkInfo().isInAreaSetMode()) return false;
+        return super.canUse();
     }
 
     @Override

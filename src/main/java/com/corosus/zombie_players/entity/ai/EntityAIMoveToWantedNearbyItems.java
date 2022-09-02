@@ -49,7 +49,7 @@ public class EntityAIMoveToWantedNearbyItems extends Goal
 
             for (ItemEntity entity : list)
             {
-                if (!entity.getItem().isEmpty() && !entity.hasPickUpDelay() && zombiePlayer.isRawMeat(entity.getItem()))
+                if (!entity.getItem().isEmpty() && !entity.hasPickUpDelay() && zombiePlayer.isCalmingItem(entity.getItem()))
                 {
                     double d1 = entity.distanceToSqr(this.zombiePlayer);
 

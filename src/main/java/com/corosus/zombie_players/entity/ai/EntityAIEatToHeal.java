@@ -77,9 +77,8 @@ public class EntityAIEatToHeal extends Goal
                 return;
             }
 
-            //prevent walking into the fire
             double dist = entityObj.position().distanceTo(new Vec3(blockposGoal.getX(), blockposGoal.getY(), blockposGoal.getZ()));
-            if (dist <= 3D) {
+            if (dist <= 3.8D) {
                 entityObj.openChest(posCachedBestChest);
                 for (int i = 0; i < 5 && (entityObj.getHealth() < entityObj.getMaxHealth() || entityObj.isCalmTimeLow()); i++) {
                     consumeOneStackSizeOfFoodAtChest();
@@ -102,7 +101,8 @@ public class EntityAIEatToHeal extends Goal
                         Vec3 vec3d = DefaultRandomPos.getPosTowards(this.entityObj, 14, 3, new Vec3((double) i + 0.5D, (double) j, (double) k + 0.5D), (double)((float)Math.PI / 2F));
 
                         if (vec3d != null) {
-                            success = this.entityObj.getNavigation().moveTo(vec3d.x, vec3d.y, vec3d.z, 1.3D);
+                            //on top of chest
+                            success = this.entityObj.getNavigation().moveTo(vec3d.x, vec3d.y+1, vec3d.z, 1.3D);
                         }
                     } else {
                         success = this.entityObj.getNavigation().moveTo((double) i + 0.5D, (double) j, (double) k + 0.5D, 1.3D);
@@ -197,7 +197,7 @@ public class EntityAIEatToHeal extends Goal
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack stack = inv.getItem(i);
             if (!stack.isEmpty() && stack.getCount() > 0) {
-                if (entityObj.isRawMeat(stack)) {
+                if (entityObj.isCalmingItem(stack)) {
                     stack.shrink(1);
                     if (stack.getCount() <= 0) {
                         inv.setItem(i, ItemStack.EMPTY);

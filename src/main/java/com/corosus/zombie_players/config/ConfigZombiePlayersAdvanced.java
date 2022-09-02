@@ -32,8 +32,6 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
 	public static boolean onlySeekFoodIfNeeded = false;
 
-	public static String calmingItems = "minecraft:porkchop, minecraft:mutton, minecraft:tropical_fish, minecraft:beef, minecraft:chicken, minecraft:rabbit, minecraft:bread";
-
 	public static int tickDelayBetweenPlaying = 20*60*60;
 
 	@Override
@@ -58,38 +56,7 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	@Override
 	public void hookUpdatedValues() {
-		Zombie_Players.listCalmingItems.clear();
 
-		try {
-			CULog.dbg("Processing calming items list for Zombie Players");
-			String[] names = calmingItems.split(",");
-			for (int i = 0; i < names.length; i++) {
-				//remove spaces
-				names[i] = names[i].trim();
-
-				/*if (names[i].contains("ore:")) {
-					String oreDictName = names[i].split(":")[1];
-					CULog.dbg("processing ore dictionary entry: " + oreDictName);
-					NonNullList<ItemStack> stacks = OreDictionary.getOres(oreDictName);
-					if (stacks.size() == 0) {
-						CULog.dbg("none found for ore dictionary name: " + oreDictName);
-					}
-					for (ItemStack stack : stacks) {
-						CULog.dbg("adding ore dict'd item: " + stack.getItem().getRegistryName());
-						Zombie_Players.listCalmingItems.add(stack.getItem());
-					}
-				} else */{
-					Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(names[i]));
-					if (item != null && item != Items.AIR) {
-						CULog.dbg("adding: " + item.getRegistryName());
-						Zombie_Players.listCalmingItems.add(item);
-					}
-				}
-			}
-		} catch (Exception ex) {
-			CULog.err("CRITICAL ERROR PARSING calmingItems CONFIG STRING FOR ZOMBIE PLAYERS");
-			ex.printStackTrace();
-		}
 	}
 
 }
