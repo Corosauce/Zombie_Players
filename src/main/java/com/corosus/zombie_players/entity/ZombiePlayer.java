@@ -393,13 +393,19 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             player.sendMessage(new TextComponent("Set work center"), uuid);
             getWorkInfo().setPosWorkCenter(blockPosition());
          */} else if (itemstack.getItem() == Items.GOLDEN_HOE) {
-            if (player.isSprinting()) {
+            /*if (player.isSprinting()) {
                CULog.dbg("sprint click");
                this.showWorkInfo = !this.showWorkInfo;
-            } else if (player.isCrouching()) {
-               player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 1);
-               getWorkInfo().setInAreaSetMode(true);
-               player.sendMessage(new TextComponent("Setting work area, right click first block with golden hoe"), uuid);
+            } else */if (player.isCrouching()) {
+               if (player.getPersistentData().getInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE) == 0) {
+                  player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 1);
+                  getWorkInfo().setInAreaSetMode(true);
+                  player.sendMessage(new TextComponent("Setting work area, right click first block with golden hoe, or zombie player to remove work area"), uuid);
+               } else {
+                  getWorkInfo().setInAreaSetMode(false);
+                  player.sendMessage(new TextComponent("Removing work area"), uuid);
+                  getWorkInfo().setPosWorkArea(WorkInfo.CENTER_ZERO);
+               }
             } else {
                getWorkInfo().setInTrainingMode(!getWorkInfo().isInTrainingMode());
                if (getWorkInfo().isInTrainingMode()) {
@@ -651,6 +657,21 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean hurt(DamageSource p_34288_, float p_34289_) {
+
+      if (!this.level.isClientSide() && p_34288_.getEntity() instanceof Player) {
+         Player player = (Player) p_34288_.getEntity();
+         if (player.getMainHandItem().getItem() == Items.GOLDEN_HOE) {
+            CULog.dbg("hoe attack");
+            this.showWorkInfo = !this.showWorkInfo;
+            if (this.showWorkInfo) {
+               player.sendMessage(new TextComponent("Work info visible"), uuid);
+            } else {
+               player.sendMessage(new TextComponent("Work info hidden"), uuid);
+            }
+            return false;
+         }
+      }
+
       if (!super.hurt(p_34288_, p_34289_)) {
          return false;
       } else if (!(this.level instanceof ServerLevel)) {
@@ -666,7 +687,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
             //just head block wasnt enough, need to mimic code from isInWall()
             float f = getBbWidth() * 0.8F;
-            AABB aabb = AABB.ofSize(this.getEyePosition(), (double)f, 1.0E-6D, (double)f);
+            AABB aabb = AABB.ofSize(this.getEyePosition(), f, 1.0E-6D, f);
             BlockPos.betweenClosedStream(aabb).anyMatch((p_201942_) -> {
                BlockState blockstate = this.level.getBlockState(p_201942_);
                if (!blockstate.isAir() && blockstate.isSuffocating(this.level, p_201942_) && Shapes.joinIsNotEmpty(blockstate.getCollisionShape(this.level, p_201942_).move((double)p_201942_.getX(), (double)p_201942_.getY(), (double)p_201942_.getZ()), Shapes.create(aabb), BooleanOp.AND)) {
@@ -687,7 +708,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       boolean result = true;
       getFakePlayer().getAttributes().addTransientAttributeModifiers(getMainHandItem().getAttributeModifiers(EquipmentSlot.MAINHAND));
       getFakePlayer().attack(entityIn);
-      //level.getEntities(entityIn.getType(), this.getBoundingBox().inflate(2), Entity::isAlive).stream().forEach(entity -> entity; CULog.dbg(""););
       List<Entity> list = level.getEntities((EntityTypeTest<Entity, Entity>) entityIn.getType(), this.getBoundingBox().inflate(24), Entity::isAlive);
       for (Entity ent : list) {
          if (ent instanceof Mob) {
@@ -697,7 +717,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             }
          }
       }
-      //getMainHandItem().hurtEnemy((LivingEntity) entityIn, getFakePlayer());
 
       if (!level.isClientSide() && entityIn instanceof LivingEntity) {
          if (((LivingEntity) entityIn).getHealth() <= 0 && isCalm()) {
@@ -811,9 +830,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putBoolean("work_visible", isShowWorkInfo());
 
       compound.putBoolean("pickup_extra_items", isCanPickupExtraItems());
-
-      //boolean miss
-      //boolean inside
 
       //BlockHitResult data
       if (getWorkInfo().getBlockHitResult() != null) {
