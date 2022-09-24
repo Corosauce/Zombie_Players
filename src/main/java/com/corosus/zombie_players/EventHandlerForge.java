@@ -4,6 +4,7 @@ import com.corosus.modconfig.ConfigMod;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
 import com.corosus.zombie_players.entity.EnumTrainType;
 import com.corosus.zombie_players.entity.ZombiePlayer;
+import com.corosus.zombie_players.entity.ai.WorkInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -124,6 +125,20 @@ public class EventHandlerForge {
 				ent.getWorkInfo().setItemNeededForWork(player.getMainHandItem());
 				ent.getWorkInfo().setBlockHitResult(blockHitResult);
 				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " observed " + state + " using " + player.getMainHandItem()), new UUID(0, 0));
+				//set a basic small work area and update restriction area if no work area set yet
+				if (ent.getWorkInfo().getPosWorkArea() == WorkInfo.CENTER_ZERO) {
+					AABB aabb = new AABB(
+							pos.getX(),
+							pos.getY(),
+							pos.getZ(),
+							pos.getX() + 1,
+							pos.getY() + 1,
+							pos.getZ() + 1);
+					aabb = aabb.inflate(4, 2, 4);
+					ent.getWorkInfo().setPosWorkArea(aabb);
+					Vec3 center = ent.getWorkInfo().getPosWorkArea().getCenter();
+					ent.restrictTo(new BlockPos(center.x, center.y+1, center.z), (int) ent.getWorkInfo().getPosWorkArea().getSize());
+				}
 			}
 		}
 	}

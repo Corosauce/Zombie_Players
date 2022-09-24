@@ -68,7 +68,7 @@ public class TreeCutter {
 				BlockPos current = frontier.remove(0);
 				visited.add(current);
 				logs.add(current);
-				for (Direction direction : Iterate.directions) {
+				for (Direction direction : Direction.values()) {
 					BlockPos offset = current.relative(direction);
 					if (visited.contains(offset))
 						continue;
@@ -123,7 +123,7 @@ public class TreeCutter {
 				leaves.add(currentPos);
 
 			int distance = !isLeaf ? 0 : blockState.getValue(LeavesBlock.DISTANCE);
-			for (Direction direction : Iterate.directions) {
+			for (Direction direction : Direction.values()) {
 				BlockPos offset = currentPos.relative(direction);
 				if (visited.contains(offset))
 					continue;
@@ -182,7 +182,7 @@ public class TreeCutter {
 			if (!lowerLayer && !pos.equals(currentPos.below()) && isLog(reader.getBlockState(currentPos.below())))
 				return false;
 
-			for (Direction direction : Iterate.directions) {
+			for (Direction direction : Direction.values()) {
 				if (direction == Direction.DOWN)
 					continue;
 				if (direction == Direction.UP && !lowerLayer)

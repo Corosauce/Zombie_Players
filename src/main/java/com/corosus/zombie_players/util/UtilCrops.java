@@ -27,7 +27,7 @@ public class UtilCrops {
     public static void initDataIfNeeded() {
         if (crops.size() == 0) {
             ForgeRegistries.BLOCKS.getValues().stream()
-                    .filter(b -> /*!isVanilla(b) && */b instanceof CropBlock)
+                    .filter(b -> b instanceof CropBlock)
                     .map(b -> (CropBlock) b)
                     .forEach(b -> crops.put(b.defaultBlockState().setValue(b.getAgeProperty(), last(b.getAgeProperty().getPossibleValues())), b.defaultBlockState()));
         }
