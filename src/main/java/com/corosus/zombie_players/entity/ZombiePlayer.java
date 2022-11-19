@@ -118,7 +118,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public static ZombiePlayer spawnInPlaceOfPlayer(ServerPlayer player) {
       boolean spawn = true;
       ZombiePlayer zombie = null;
-      if (player.getRespawnPosition() != BlockPos.ZERO) {
+      if (player.getRespawnPosition() != null && player.getRespawnPosition() != BlockPos.ZERO) {
          if (player.getRespawnPosition().distSqr(new BlockPos(Mth.floor(player.getX()), Mth.floor(player.getY()), Mth.floor(player.getZ()))) <
                  ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn * ConfigZombiePlayers.distanceFromPlayerSpawnPointToPreventZombieSpawn) {
             spawn = false;
@@ -128,7 +128,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
          if (player.level instanceof ServerLevelAccessor) {
             zombie = spawnInPlaceOfPlayer(player.level, player.getX(), player.getY(), player.getZ(), player.getGameProfile());
-            if (player.getRespawnPosition() != BlockPos.ZERO) {
+            if (player.getRespawnPosition() != null && player.getRespawnPosition() != BlockPos.ZERO) {
                zombie.setHomePosAndDistance(player.getRespawnPosition(), 16, true);
             }
          }
@@ -1473,7 +1473,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    @Override
    public boolean shouldShowName() {
-      return true;
+      return isCalm();
    }
 
    @Override

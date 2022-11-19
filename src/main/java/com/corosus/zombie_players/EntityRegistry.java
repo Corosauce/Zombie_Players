@@ -3,6 +3,9 @@ package com.corosus.zombie_players;
 import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.SpawnPlacements;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -27,6 +30,8 @@ public class EntityRegistry {
                         .sized(0.6F, 1.95F)
                         .build("zombie_player")
                         .setRegistryName("zombie_player"));
+
+        SpawnPlacements.register(zombie_player, SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
     }
 
     @SubscribeEvent
