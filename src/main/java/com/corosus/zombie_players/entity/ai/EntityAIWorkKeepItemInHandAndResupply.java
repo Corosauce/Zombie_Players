@@ -37,6 +37,7 @@ public class EntityAIWorkKeepItemInHandAndResupply extends Goal
     @Override
     public boolean canUse()
     {
+        if (!entityObj.isCalm()) return false;
         if (!entityObj.needsMoreWorkItem()) return false;
         if (entityObj.hasNeededWorkItemInExtra()) return true;
         posCachedBestChest = entityObj.getNearestChestWithNeededWorkItem();
@@ -49,6 +50,7 @@ public class EntityAIWorkKeepItemInHandAndResupply extends Goal
     @Override
     public boolean canContinueToUse()
     {
+        if (!entityObj.isCalm()) return false;
         if (!entityObj.needsMoreWorkItem()) return false;
         if (entityObj.hasNeededWorkItemInExtra()) return true;
         return posCachedBestChest != BlockPos.ZERO;

@@ -30,6 +30,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -52,6 +54,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -71,6 +74,7 @@ import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import net.minecraftforge.network.NetworkHooks;
 
 public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity, ContainerListener {
+   private static final EntityDataAccessor<Boolean> IS_CALM_ID = SynchedEntityData.defineId(ZombiePlayer.class, EntityDataSerializers.BOOLEAN);
    private static final Predicate<Difficulty> DOOR_BREAKING_PREDICATE = (p_34284_) -> {
       return p_34284_ == Difficulty.HARD;
    };
@@ -224,6 +228,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    protected void defineSynchedData() {
       super.defineSynchedData();
+      this.getEntityData().define(IS_CALM_ID, false);
    }
 
    public boolean canBreakDoors() {
@@ -561,7 +566,14 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
             if (calmTime == 0) {
                onBecomeHostile();
+               this.getEntityData().set(IS_CALM_ID, false);
+            } else {
+               if (!isCalmFlag()) {
+                  this.getEntityData().set(IS_CALM_ID, true);
+               }
             }
+
+
          }
 
          if (level.getGameTime() % ConfigZombiePlayersAdvanced.heal1HealthPerXTicks == 0) {
@@ -704,18 +716,21 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    public boolean doHurtTarget(Entity entityIn) {
       if (!(entityIn instanceof LivingEntity)) return false;
-      //boolean result = super.doHurtTarget(entityIn);
       boolean result = true;
-      getFakePlayer().getAttributes().addTransientAttributeModifiers(getMainHandItem().getAttributeModifiers(EquipmentSlot.MAINHAND));
-      getFakePlayer().attack(entityIn);
-      List<Entity> list = level.getEntities((EntityTypeTest<Entity, Entity>) entityIn.getType(), this.getBoundingBox().inflate(24), Entity::isAlive);
-      for (Entity ent : list) {
-         if (ent instanceof Mob) {
-            Mob livingEntity = (Mob) ent;
-            if (livingEntity.getTarget() instanceof FakePlayerInventoryProxy) {
-               livingEntity.setTarget(this);
+      if (isCalm()) {
+         getFakePlayer().getAttributes().addTransientAttributeModifiers(getMainHandItem().getAttributeModifiers(EquipmentSlot.MAINHAND));
+         getFakePlayer().attack(entityIn);
+         List<Entity> list = level.getEntities((EntityTypeTest<Entity, Entity>) entityIn.getType(), this.getBoundingBox().inflate(24), Entity::isAlive);
+         for (Entity ent : list) {
+            if (ent instanceof Mob) {
+               Mob livingEntity = (Mob) ent;
+               if (livingEntity.getTarget() instanceof FakePlayerInventoryProxy) {
+                  livingEntity.setTarget(this);
+               }
             }
          }
+      } else {
+         result = super.doHurtTarget(entityIn);
       }
 
       if (!level.isClientSide() && entityIn instanceof LivingEntity) {
@@ -843,19 +858,21 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          compound.putInt("bhr_pos_Z", getWorkInfo().getBlockHitResult().getBlockPos().getZ());
       }
 
-      ListTag listtag = new ListTag();
+      if (isCalm()) {
+         ListTag listtag = new ListTag();
 
-      for(int i = 2; i < this.getExtraInventory().getContainerSize(); ++i) {
-         ItemStack itemstack = this.getExtraInventory().getItem(i);
-         if (!itemstack.isEmpty()) {
-            CompoundTag compoundtag = new CompoundTag();
-            compoundtag.putByte("Slot", (byte)i);
-            itemstack.save(compoundtag);
-            listtag.add(compoundtag);
+         for (int i = 2; i < this.getExtraInventory().getContainerSize(); ++i) {
+            ItemStack itemstack = this.getExtraInventory().getItem(i);
+            if (!itemstack.isEmpty()) {
+               CompoundTag compoundtag = new CompoundTag();
+               compoundtag.putByte("Slot", (byte) i);
+               itemstack.save(compoundtag);
+               listtag.add(compoundtag);
+            }
          }
-      }
 
-      compound.put("Items", listtag);
+         compound.put("Items", listtag);
+      }
    }
 
    public void readAdditionalSaveData(CompoundTag compound) {
@@ -1099,6 +1116,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       setCanEquip(ConfigZombiePlayers.pickupLootWhenCalm);
       this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.28D);
       this.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1F);
+      this.shouldFollowOwner = true;
    }
 
    public void onBecomeHostile() {
@@ -1473,7 +1491,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    @Override
    public boolean shouldShowName() {
-      return isCalm();
+      return isCalm() || isCalmFlag();
    }
 
    @Override
@@ -1560,6 +1578,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean hasAnyItemsInExtra() {
+      if (!isCalm()) return false;
       for(int i = 0; i < this.getExtraInventory().getContainerSize(); ++i) {
          ItemStack itemstack = this.getExtraInventory().getItem(i);
          if (!itemstack.isEmpty()) {
@@ -1582,6 +1601,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean hasNeededWorkItemInExtra() {
+      if (!isCalm()) return false;
       for(int i = 0; i < this.getExtraInventory().getContainerSize(); ++i) {
          ItemStack itemstack = this.getExtraInventory().getItem(i);
          if (!itemstack.isEmpty()) {
@@ -1801,6 +1821,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean hasInventoryChanged(Container p_149512_) {
+      if (!isCalm()) return false;
       return this.getExtraInventory() != p_149512_;
    }
 
@@ -1967,4 +1988,32 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.canPickupExtraItems = val;
    }
 
+   @Override
+   public void remove(RemovalReason p_146834_) {
+      super.remove(p_146834_);
+
+      if (fakePlayer != null) {
+         fakePlayer.remove(p_146834_);
+      }
+      fakePlayer = null;
+   }
+
+   @Override
+   public void onClientRemoval() {
+      super.onClientRemoval();
+
+      if (fakePlayer != null) {
+         fakePlayer.onClientRemoval();
+      }
+      fakePlayer = null;
+   }
+
+   @Override
+   public boolean checkSpawnObstruction(LevelReader p_21433_) {
+      return super.checkSpawnObstruction(p_21433_);
+   }
+
+   public boolean isCalmFlag() {
+      return getEntityData().get(IS_CALM_ID);
+   }
 }

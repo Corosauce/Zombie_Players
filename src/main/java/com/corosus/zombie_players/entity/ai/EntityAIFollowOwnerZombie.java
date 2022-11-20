@@ -118,6 +118,12 @@ public class EntityAIFollowOwnerZombie extends Goal
     {
         this.entity.getLookControl().setLookAt(this.owner, 10.0F, (float)this.entity.getMaxHeadXRot());
 
+        if (!this.entity.isLeashed() && !this.entity.isPassenger()) {
+            if (this.entity.distanceToSqr(this.owner) >= 144.0D) {
+                this.teleportToOwner();
+            }
+        }
+
         if (true/*!this.tameable.isSitting()*/)
         {
             if (--this.timeToRecalcPath <= 0)
@@ -172,6 +178,37 @@ public class EntityAIFollowOwnerZombie extends Goal
                 BlockPos blockpos = p_25308_.subtract(this.entity.blockPosition());
                 return this.world.noCollision(this.entity, this.entity.getBoundingBox().move(blockpos));
             }
+        }
+    }
+
+    private void teleportToOwner() {
+        BlockPos blockpos = this.owner.blockPosition();
+
+        for(int i = 0; i < 10; ++i) {
+            int j = this.randomIntInclusive(-3, 3);
+            int k = this.randomIntInclusive(-1, 1);
+            int l = this.randomIntInclusive(-3, 3);
+            boolean flag = this.maybeTeleportTo(blockpos.getX() + j, blockpos.getY() + k, blockpos.getZ() + l);
+            if (flag) {
+                return;
+            }
+        }
+
+    }
+
+    private int randomIntInclusive(int p_25301_, int p_25302_) {
+        return this.entity.getRandom().nextInt(p_25302_ - p_25301_ + 1) + p_25301_;
+    }
+
+    private boolean maybeTeleportTo(int p_25304_, int p_25305_, int p_25306_) {
+        if (Math.abs((double)p_25304_ - this.owner.getX()) < 2.0D && Math.abs((double)p_25306_ - this.owner.getZ()) < 2.0D) {
+            return false;
+        } else if (!this.canTeleportTo(new BlockPos(p_25304_, p_25305_, p_25306_))) {
+            return false;
+        } else {
+            this.entity.moveTo((double)p_25304_ + 0.5D, (double)p_25305_, (double)p_25306_ + 0.5D, this.entity.getYRot(), this.entity.getXRot());
+            entity.getNavigation().stop();
+            return true;
         }
     }
 }
