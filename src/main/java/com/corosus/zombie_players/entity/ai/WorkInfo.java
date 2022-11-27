@@ -21,6 +21,7 @@ public class WorkInfo {
     private Direction workClickDirectionLastObserved = Direction.UP;
     private boolean inTrainingMode = false;
     private boolean inAreaSetMode = false;
+    private boolean exactMatchMode = false;
     private BlockPos workAreaPos1 = BlockPos.ZERO;
     private BlockHitResult blockHitResult = null;
 
@@ -69,7 +70,7 @@ public class WorkInfo {
     }
 
     public void setItemNeededForWork(ItemStack itemNeededForWork) {
-        this.itemNeededForWork = itemNeededForWork;
+        this.itemNeededForWork = itemNeededForWork.copy();
     }
 
     public boolean isInAreaSetMode() {
@@ -106,5 +107,13 @@ public class WorkInfo {
 
     public void setBlockHitResult(BlockHitResult blockHitResult) {
         this.blockHitResult = blockHitResult;
+    }
+
+    public boolean isExactMatchMode() {
+        return exactMatchMode;
+    }
+
+    public void setExactMatchMode(boolean exactMatchMode) {
+        this.exactMatchMode = exactMatchMode;
     }
 }

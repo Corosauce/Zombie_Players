@@ -21,7 +21,7 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
 {
     private final Predicate<Entity> canBeSeenSelector;
     /** The entity we are attached to */
-    protected PathfinderMob theEntity;
+    protected ZombiePlayer theEntity;
     private final double farSpeed;
     private final double nearSpeed;
     protected T closestLivingEntity;
@@ -35,12 +35,12 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
     private final Predicate <? super T > avoidTargetSelector;
     private float healthToAvoid = 0F;
 
-    public EntityAIAvoidEntityOnLowHealth(PathfinderMob theEntityIn, Class<T> classToAvoidIn, float avoidDistanceIn, double farSpeedIn, double nearSpeedIn, float healthToAvoid)
+    public EntityAIAvoidEntityOnLowHealth(ZombiePlayer theEntityIn, Class<T> classToAvoidIn, float avoidDistanceIn, double farSpeedIn, double nearSpeedIn, float healthToAvoid)
     {
         this(theEntityIn, classToAvoidIn, Predicates.<T>alwaysTrue(), avoidDistanceIn, farSpeedIn, nearSpeedIn, healthToAvoid);
     }
 
-    public EntityAIAvoidEntityOnLowHealth(PathfinderMob theEntityIn, Class<T> classToAvoidIn, Predicate <? super T > avoidTargetSelectorIn, float avoidDistanceIn, double farSpeedIn, double nearSpeedIn, float healthToAvoid)
+    public EntityAIAvoidEntityOnLowHealth(ZombiePlayer theEntityIn, Class<T> classToAvoidIn, Predicate <? super T > avoidTargetSelectorIn, float avoidDistanceIn, double farSpeedIn, double nearSpeedIn, float healthToAvoid)
     {
         this.canBeSeenSelector = new Predicate<Entity>()
         {
@@ -68,10 +68,10 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
     @Override
     public boolean canUse()
     {
-
+        if (!this.theEntity.isCalm()) return false;
         if (this.theEntity.getHealth() > healthToAvoid) return false;
 
-        if (theEntity instanceof ZombiePlayer && EntityAIFollowOwnerZombie.needsToTeleportToOwner((ZombiePlayer) theEntity)) {
+        if (theEntity instanceof ZombiePlayer && EntityAIFollowOwnerZombie.needsToTeleportToOwner(theEntity)) {
             return false;
         }
 

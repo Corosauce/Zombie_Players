@@ -53,6 +53,7 @@ import net.minecraft.world.entity.monster.*;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.*;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -89,6 +90,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public boolean canEatFromChests = false;
    public boolean canPickupExtraItems = false;
    public boolean shouldFollowOwner = false;
+   public boolean shouldWander = true;
    private boolean isPlaying;
    private int calmTime = 0;
    public List<BlockPos> listPosChests = new ArrayList<>();
@@ -112,6 +114,9 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    private FakePlayer fakePlayer = null;
    private int itemUseTime = 0;
    private boolean showWorkInfo = false;
+
+   private String fakePlayerUUIDString = "4e6ff94b-e7bd-4e36-b86b-c0431aa69418";
+   private UUID fakePlayerUUID = UUIDTypeAdapter.fromString(fakePlayerUUIDString);
 
    public ZombiePlayer(EntityType<ZombiePlayer> entityEntityType, Level level) {
       super(entityEntityType, level);
@@ -159,37 +164,9 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
            !(p_apply_1_ instanceof Creeper) &&
            (!(p_apply_1_ instanceof ZombiePlayer) || (p_apply_1_ instanceof ZombiePlayer && ((ZombiePlayer) p_apply_1_).calmTime == 0 && ((ZombiePlayer) p_apply_1_).getTarget() != null));
 
-   public static com.google.common.base.Predicate<Entity> ENEMY_PREDICATE_WITHIN_RESTRICTION = p_apply_1_ -> p_apply_1_ != null &&
-           VISIBLE_MOB_SELECTOR.apply(p_apply_1_) &&
-           (p_apply_1_ instanceof Enemy) &&
-           !(p_apply_1_ instanceof Creeper) &&
-           (!(p_apply_1_ instanceof ZombiePlayer) || (p_apply_1_ instanceof ZombiePlayer && ((ZombiePlayer) p_apply_1_).calmTime == 0 && ((ZombiePlayer) p_apply_1_).getTarget() != null));
-
-   /*public ZombiePlayerNew(Level p_34274_) {
-      this(EntityRegistry.zombie_player, p_34274_);
-   }*/
-
-   /*public ZombiePlayerNew(EntityType<ZombiePlayerNew> entityEntityType, Level level) {
-      super(entityEntityType, level);
-   }*/
-
-
-
    protected void registerGoals() {
 
       int taskID = 0;
-
-      /*//this.goalSelector.addGoal(4, new ZombiePlayerNew.ZombieAttackTurtleEggGoal(this, 1.0D, 3));
-      this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
-      this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-      //this.goalSelector.addGoal(2, new ZombieAttackGoal(this, 1.0D, false));
-      //this.goalSelector.addGoal(6, new MoveThroughVillageGoal(this, 1.0D, true, 4, this::canBreakDoors));
-      this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-      //this.targetSelector.addGoal(1, (new HurtByTargetGoal(this)).setAlertOthers(ZombifiedPiglin.class));
-      this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
-      //this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, AbstractVillager.class, false));
-      //this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
-      //this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));*/
 
       this.goalSelector.addGoal(taskID++, new FloatGoal(this));
       this.goalSelector.addGoal(taskID++, new EntityAITemptZombie(this, 1.2D, false));
@@ -209,7 +186,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.goalSelector.addGoal(taskID++, new EntityAIWorkMoveToWantedNearbyItems(this, 1.0D));
       this.goalSelector.addGoal(taskID++, new EntityAIWorkDepositPickupsInChest(this));
       this.goalSelector.addGoal(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
-      this.goalSelector.addGoal(taskID++, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+      this.goalSelector.addGoal(taskID++, new RandomStrollGoalToggled(this, 1.0D));
+      this.goalSelector.addGoal(taskID++, new EntityAIStayAtHomePosition(this, 1.0D));
 
       this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, Player.class, 8.0F));
       this.goalSelector.addGoal(taskID, new LookAtPlayerGoal(this, ZombiePlayer.class, 8.0F));
@@ -288,8 +266,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          int particleCount = 5;
          SimpleParticleType particle = null;
 
-         if (isCalm() && itemstack.getItem() == Items.APPLE) {
-            itemUsed = true;
+         if (isCalm() && itemstack.getItem() == Items.NOTE_BLOCK) {
             quiet = !quiet;
             if (quiet) {
                player.sendMessage(new TextComponent("Zombie Player quieted"), uuid);
@@ -301,12 +278,20 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
             particle = ParticleTypes.NOTE;
          } else if (isCalm() && itemstack.getItem() == Items.GLASS_BOTTLE) {
-            itemUsed = true;
             this.setBaby(!this.isBaby());
 
             particle = ParticleTypes.WITCH;
+         } else if (isCalm() && itemstack.getItem() == Item.BY_BLOCK.get(Blocks.TARGET)) {
+            this.getWorkInfo().setExactMatchMode(!this.getWorkInfo().isExactMatchMode());
+
+            if (this.getWorkInfo().isExactMatchMode()) {
+               player.sendMessage(new TextComponent("Set to exact block matching for work"), uuid);
+            } else {
+               player.sendMessage(new TextComponent("Set to NOT exact block matching for work"), uuid);
+            }
+
+            particle = ParticleTypes.WITCH;
          } else if (isCalm() && itemstack.getItem() == Items.SPIDER_EYE) {
-            itemUsed = true;
             player.sendMessage(new TextComponent("Set Zombie Player Owner to " + player.getName().getString()), uuid);
             setOwnerName(player.getName().getString());
 
@@ -317,7 +302,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                if (canPickupExtraItems) {
                   player.sendMessage(new TextComponent("Set to pickup extra items"), uuid);
                } else {
-                  player.sendMessage(new TextComponent("Set to not pickup extra items"), uuid);
+                  player.sendMessage(new TextComponent("Set to NOT pickup extra items"), uuid);
                }
             } else {
                //itemUsed = true;
@@ -325,15 +310,13 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                if (this.canEatFromChests) {
                   player.sendMessage(new TextComponent("Set to eat food from chests"), uuid);
                } else {
-                  player.sendMessage(new TextComponent("Set to not eat food from chests"), uuid);
+                  player.sendMessage(new TextComponent("Set to NOT eat food from chests"), uuid);
                }
 
 
                particle = this.canEatFromChests ? ParticleTypes.HEART : ParticleTypes.WITCH;
             }
          } else if (isCalm() && itemstack.getItem() == Items.ROTTEN_FLESH) {
-            itemUsed = true;
-
             player.sendMessage(new TextComponent("Dropped all Equipment"), uuid);
             this.dropCustomDeathLoot(DamageSource.IN_WALL, 0, true);
             //this.dropEquipment(true, 0);
@@ -355,7 +338,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   }
                } else {
                   if (this.hasRestriction()) {
-                     if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
+                     if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range0) {
+                        ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
+                        this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
+                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
+                     } else if (this.getRestrictRadius() == ConfigZombiePlayersAdvanced.stayNearHome_range1) {
                         ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
                         this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range2, true);
                         player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range2), uuid);
@@ -369,20 +356,17 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                         player.sendMessage(new TextComponent("Home removed"), uuid);
                      } else {
                         ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
-                        this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
-                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
+                        this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range0, true);
+                        player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range0), uuid);
                      }
 
                   } else {
                      ((ServerLevel)this.level).sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + this.getEyeHeight() + 0.5D, this.getZ(), particleCount, 0.3D, 0D, 0.3D, 1D);
-                     this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1, true);
-                     player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range1), uuid);
+                     this.setHomePosAndDistance(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range0, true);
+                     player.sendMessage(new TextComponent("Home set to current position with max wander distance of " + ConfigZombiePlayersAdvanced.stayNearHome_range0), uuid);
                   }
                }
-
             }
-
-
          } else if (isCalmingItem(itemstack) && (getHealth() < getMaxHealth() || getOwner() == null || isCalmTimeLow())) {
             itemUsed = true;
 
@@ -398,14 +382,12 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             player.sendMessage(new TextComponent("Set work center"), uuid);
             getWorkInfo().setPosWorkCenter(blockPosition());
          */} else if (itemstack.getItem() == Items.GOLDEN_HOE) {
-            /*if (player.isSprinting()) {
-               CULog.dbg("sprint click");
-               this.showWorkInfo = !this.showWorkInfo;
-            } else */if (player.isCrouching()) {
+            if (player.isCrouching()) {
                if (player.getPersistentData().getInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE) == 0) {
                   player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 1);
                   getWorkInfo().setInAreaSetMode(true);
                   player.sendMessage(new TextComponent("Setting work area, right click first block with golden hoe, or zombie player to remove work area"), uuid);
+                  this.setHomePosAndDistance(BlockPos.ZERO, -1, true);
                } else {
                   getWorkInfo().setInAreaSetMode(false);
                   player.sendMessage(new TextComponent("Removing work area"), uuid);
@@ -423,24 +405,41 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   } else {
                      player.sendMessage(new TextComponent("Training ended, work starting"), uuid);
                      getWorkInfo().setPerformWork(true);
-                     restrictTo(blockPosition(), (int) ConfigZombiePlayersAdvanced.stayNearHome_range1);
+                     if (getWorkInfo().getPosWorkArea().equals(WorkInfo.CENTER_ZERO)) {
+                        AABB aabb = new AABB(getRestrictCenter());
+                        aabb = aabb.inflate(getRestrictRadius(), 3, getRestrictRadius());
+                        getWorkInfo().setPosWorkArea(aabb);
+                        /*double size = Math.max(getWorkInfo().getPosWorkArea().getXsize(), getWorkInfo().getPosWorkArea().getZsize());
+                        Vec3 vec = getWorkInfo().getPosWorkArea().getCenter();
+                        restrictTo(new BlockPos(vec.x, vec.y, vec.z), (int) size);*/
+                     }
                   }
 
                }
             }
-
-
          } else if (isCalm() && itemstack.isEmpty()) {
-            shouldFollowOwner = !shouldFollowOwner;
+            if (player.isCrouching()) {
+               shouldWander = !shouldWander;
 
-            particle = this.shouldFollowOwner ? ParticleTypes.HEART : ParticleTypes.WITCH;
+               particle = this.shouldWander ? ParticleTypes.HEART : ParticleTypes.WITCH;
 
-            if (shouldFollowOwner) {
-               player.sendMessage(new TextComponent("Following"), uuid);
-               this.restrictTo(null, -1);
+               if (shouldWander) {
+                  player.sendMessage(new TextComponent("Wandering"), uuid);
+               } else {
+                  player.sendMessage(new TextComponent("Not wandering, idles home position"), uuid);
+               }
             } else {
-               player.sendMessage(new TextComponent("Wandering"), uuid);
-               this.restrictTo(homePositionBackup, homeDistBackup);
+               shouldFollowOwner = !shouldFollowOwner;
+
+               particle = this.shouldFollowOwner ? ParticleTypes.HEART : ParticleTypes.WITCH;
+
+               if (shouldFollowOwner) {
+                  player.sendMessage(new TextComponent("Following"), uuid);
+                  this.restrictTo(null, -1);
+               } else {
+                  player.sendMessage(new TextComponent("Not following"), uuid);
+                  this.restrictTo(homePositionBackup, homeDistBackup);
+               }
             }
          }
 
@@ -450,7 +449,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          }
 
          if (itemUsed) {
-
             this.consumeItemFromStack(player, itemstack);
             return InteractionResult.CONSUME;
          }
@@ -634,18 +632,48 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       //run after super to let vanilla equipment and armor grabbing go first
       if (!level.isClientSide()) {
-         if (calmTime > 0) {
+         if (isCalm() && this.isAlive() && !this.dead) {
+
+            //new because we need to support picking up with mob griefing off
+            boolean scan = (ConfigZombiePlayersAdvanced.canPickupItemsWithMobGriefingOff && !level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) || shouldPickupExtraItems();
+
+            if (scan) {
+               for(ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
+                  if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()) {
+                     if (this.wantsToPickUp(itementity.getItem())) {
+                        this.pickUpItem(itementity);
+                     } else if (shouldPickupExtraItems()) {
+                        this.pickUpItemForExtraInventory(itementity);
+                     }
+                  }
+               }
+            }
+
+            //new because we need to support picking up with mob griefing off
+            /*if (!this.level.isClientSide && this.canPickUpLoot() && this.isAlive() && !this.dead && !level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+               for(ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
+                  if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay() && this.wantsToPickUp(itementity.getItem())) {
+                     this.pickUpItem(itementity);
+                  }
+               }
+            }
+
             //pickup other items when in work mode
-            if (isCalm() && shouldPickupExtraItems() && this.isAlive() && !this.dead) {
+            if (shouldPickupExtraItems() && this.isAlive() && !this.dead) {
                for (ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
-                  if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()/* && this.wantsToPickUp(itementity.getItem())*/) {
+                  if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()*//* && this.wantsToPickUp(itementity.getItem())*//*) {
                      //inverting this so that Mob.java can equip armor, and our above code can eat food, and this will handle everything else
                      //if (!this.wantsToPickUp(itementity.getItem())) {
                         this.pickUpItemForExtraInventory(itementity);
                      //}
                   }
                }
-            }
+            }*/
+         }
+
+         //prevent newly calmed zombie player from attacking others if it was before
+         if (isCalm() && getTarget() != null && getTarget() instanceof ZombiePlayer && ((ZombiePlayer) getTarget()).isCalm()) {
+            setTarget(null);
          }
       }
    }
@@ -819,6 +847,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putBoolean("quiet", quiet);
       compound.putBoolean("canEatFromChests", canEatFromChests);
       compound.putBoolean("shouldFollowOwner", shouldFollowOwner);
+      compound.putBoolean("shouldWander", shouldWander);
       compound.putInt("calmTime", calmTime);
 
       compound.putString("ownerName", ownerName);
@@ -858,6 +887,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          compound.putInt("bhr_pos_Z", getWorkInfo().getBlockHitResult().getBlockPos().getZ());
       }
 
+      compound.putBoolean("work_exact_match", getWorkInfo().isExactMatchMode());
+
       if (isCalm()) {
          ListTag listtag = new ListTag();
 
@@ -872,6 +903,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          }
 
          compound.put("Items", listtag);
+      }
+
+      if (fakePlayerUUID != null) {
+         compound.putUUID("fakePlayerUUID", this.fakePlayerUUID);
       }
    }
 
@@ -909,6 +944,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       quiet = compound.getBoolean("quiet");
       canEatFromChests = compound.getBoolean("canEatFromChests");
       shouldFollowOwner = compound.getBoolean("shouldFollowOwner");
+      shouldWander = compound.getBoolean("shouldWander");
       calmTime = compound.getInt("calmTime");
 
       ownerName = compound.getString("ownerName");
@@ -956,7 +992,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          getWorkInfo().setBlockHitResult(result);
       }
 
+      if (compound.contains("work_exact_match")) getWorkInfo().setExactMatchMode(compound.getBoolean("work_exact_match"));
 
+      if (compound.hasUUID("fakePlayerUUID")) {
+         this.fakePlayerUUID = compound.getUUID("fakePlayerUUID");
+      }
    }
 
    public void killed(ServerLevel p_34281_, LivingEntity p_34282_) {
@@ -1094,6 +1134,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          //cancel other AI making us target other zombie players, mainly the call for help logic from EntityAIHurtByTarget
          //also only if that other zombie player is calm too
       } else if (calmTime > 0 && entitylivingbaseIn instanceof ZombiePlayer && ((ZombiePlayer) entitylivingbaseIn).calmTime > 0) {
+         //not sure why i commented this out, moving this code to active ticking fix anyways
          //super.setAttackTarget(null);
       } else {
          super.setTarget(entitylivingbaseIn);
@@ -1519,7 +1560,17 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public FakePlayer getFakePlayer() {
       if (fakePlayer == null) {
          //fakePlayer = FakePlayerFactory.get((ServerLevel) level, new GameProfile(UUID.randomUUID(), "Zombie_Player"));
-         fakePlayer = new FakePlayerInventoryProxy((ServerLevel)level, new GameProfile(UUID.randomUUID(), "Zombie_Player"), this);
+
+         //if a zombie player was calmed, we need to switch to a unique uuid that isnt shared between all hostile zombie players
+         //idea is that for all the interactions calmed players do, i feel it'd be best to be real player accurate by each having a unique uuid
+         if (isCalm() && fakePlayerUUID.toString().equals(fakePlayerUUIDString)) {
+            CULog.dbg("converting hostile zombie player uuid to unique uuid");
+            fakePlayerUUID = Mth.createInsecureUUID(this.random);
+         }
+         if (!isCalm()) {
+            CULog.dbg("something invoked fake player requiring code while hostile");
+         }
+         fakePlayer = new FakePlayerInventoryProxy((ServerLevel)level, new GameProfile(fakePlayerUUID, "Zombie_Player"), this);
       }
       syncFakePlayer(fakePlayer);
       return fakePlayer;

@@ -88,7 +88,10 @@ public class EventHandlerForge {
 							ent.getWorkInfo().setPosWorkArea(aabb);
 							ent.getWorkInfo().setInAreaSetMode(false);
 							Vec3 center = ent.getWorkInfo().getPosWorkArea().getCenter();
-							ent.restrictTo(new BlockPos(center.x, center.y+1, center.z), (int) ent.getWorkInfo().getPosWorkArea().getSize());
+							//ent.restrictTo(new BlockPos(center.x, center.y+1, center.z), (int) ent.getWorkInfo().getPosWorkArea().getSize());
+							double size = Math.max(ent.getWorkInfo().getPosWorkArea().getXsize(), ent.getWorkInfo().getPosWorkArea().getZsize());
+							ent.restrictTo(new BlockPos(center.x, center.y+1, center.z), (int) size);
+							//this.setHomePosAndDistance(BlockPos.ZERO, -1, true);
 							event.getPlayer().sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " work area set to " + aabb), new UUID(0, 0));
 							event.setCanceled(true);
 						}

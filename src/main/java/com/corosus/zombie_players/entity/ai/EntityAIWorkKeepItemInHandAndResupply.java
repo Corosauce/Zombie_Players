@@ -38,6 +38,7 @@ public class EntityAIWorkKeepItemInHandAndResupply extends Goal
     public boolean canUse()
     {
         if (!entityObj.isCalm()) return false;
+        if (!entityObj.getWorkInfo().isPerformingWork()) return false;
         if (!entityObj.needsMoreWorkItem()) return false;
         if (entityObj.hasNeededWorkItemInExtra()) return true;
         posCachedBestChest = entityObj.getNearestChestWithNeededWorkItem();

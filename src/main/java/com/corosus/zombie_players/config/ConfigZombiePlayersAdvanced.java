@@ -1,15 +1,7 @@
 package com.corosus.zombie_players.config;
 
-import com.corosus.coroutil.util.CULog;
 import com.corosus.modconfig.ConfigComment;
 import com.corosus.modconfig.IConfigCategory;
-import com.corosus.zombie_players.Zombie_Players;
-import net.minecraft.core.NonNullList;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraftforge.registries.ForgeRegistries;
 
 public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
@@ -21,9 +13,10 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
     public static double heal1HealthPerXTicks = 20*60*5;
 
-	public static float stayNearHome_range1 = 16;
-	public static float stayNearHome_range2 = 32;
-	public static float stayNearHome_range3 = 64;
+	public static double stayNearHome_range0 = 8;
+	public static double stayNearHome_range1 = 16;
+	public static double stayNearHome_range2 = 32;
+	public static double stayNearHome_range3 = 64;
 
 	public static double calmItemSearchRange = 12;
 
@@ -33,6 +26,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 	public static boolean onlySeekFoodIfNeeded = false;
 
 	public static int tickDelayBetweenPlaying = 20*60*60;
+
+	public static boolean canPickupItemsWithMobGriefingOff = true;
 
 	@Override
 	public String getName() {

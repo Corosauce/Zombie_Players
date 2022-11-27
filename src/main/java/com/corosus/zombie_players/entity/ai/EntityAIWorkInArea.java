@@ -82,7 +82,7 @@ public class EntityAIWorkInArea extends Goal
         //TODO: data driven style like: "minecraft:wheat[age=7]", see quark SimpleHarvestModule
 
         add(CropBlock.class, CropBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
-        add(PotatoBlock.class, PotatoBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
+        //add(PotatoBlock.class, PotatoBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
         add(BeetrootBlock.class, BeetrootBlock.AGE, EnumBlockBreakBehaviorType.HARVEST);
         add(SugarCaneBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
         add(CactusBlock.class, null, EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM);
@@ -248,10 +248,6 @@ public class EntityAIWorkInArea extends Goal
                 foundRuleForBlock = true;
             }
 
-            if (!foundRuleForBlock) {
-                successfullMatchPhase1 = true;
-            }
-
             if (foundRuleForBlock) {
                 if (info.property == null) {
                     successfullMatchPhase1 = true;
@@ -265,6 +261,19 @@ public class EntityAIWorkInArea extends Goal
                         successfullMatchPhase1 = true;
                     }
                 }
+            } else if (entityObj.getWorkInfo().isExactMatchMode()) {
+                for(Map.Entry<Property<?>, Comparable<?>> entry : state.getValues().entrySet()) {
+                    if (entityObj.getWorkInfo().getStateWorkLastObserved().hasProperty(entry.getKey())) {
+                        if (state.getValue(entry.getKey()) != entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey())) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                successfullMatchPhase1 = true;
+            } else {
+                successfullMatchPhase1 = true;
             }
 
             if (successfullMatchPhase1) {
@@ -563,6 +572,15 @@ public class EntityAIWorkInArea extends Goal
     public BlockInfo getBlockInfo(BlockState state) {
         BlockInfo info = lookupBlockClassToBlockInfo.get(state.getBlock().getClass());
         if (info == null) {
+            //new support for things like blocks that extend BlockCrops
+            for (Map.Entry<Class, BlockInfo> entry : lookupBlockClassToBlockInfo.entrySet()) {
+                if (entry.getKey().isAssignableFrom(state.getBlock().getClass())) {
+                    info = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (info == null) {
             for (TagKey key : state.getTags().toList()) {
                 if (state.is(key)) {
                     String str = key.location().toString().replace("minecraft:", "");
@@ -574,6 +592,19 @@ public class EntityAIWorkInArea extends Goal
             }
         }
         return info;
+        /*BlockInfo info = lookupBlockClassToBlockInfo.get(state.getBlock().getClass());
+        if (info == null) {
+            for (TagKey key : state.getTags().toList()) {
+                if (state.is(key)) {
+                    String str = key.location().toString().replace("minecraft:", "");
+                    info = lookupBlockTagToBlockInfo.get(str);
+                    if (info != null) {
+                        break;
+                    }
+                }
+            }
+        }
+        return info;*/
     }
 
     public BlockPos quickFindNeighborWorkBlock(BlockPos completedJobPos) {
