@@ -43,7 +43,11 @@ public class EntityAIStayAtHomePosition extends Goal
     {
         if (!entity.isCalm() || entity.shouldWander || entity.shouldFollowOwner) return false;
 
-        if (!entity.getRestrictCenter().equals(BlockPos.ZERO) && !isCloseEnough()) {
+        if (entity.getRestrictCenter() == null || entity.getRestrictCenter().equals(BlockPos.ZERO)) {
+            return false;
+        }
+
+        if (!isCloseEnough()) {
             return true;
         }
 

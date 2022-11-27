@@ -481,7 +481,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   drawAABBAsParticles(aabb);
                }
                BlockPos pos = getRestrictCenter();
-               if (!pos.equals(BlockPos.ZERO) && getRestrictRadius() != -1) {
+               if (pos != null && !pos.equals(BlockPos.ZERO) && getRestrictRadius() != -1) {
                   drawCircleAsParticles(new Vec3(pos.getX()+0.5F, pos.getY()+0.5F, pos.getZ()+0.5F), getRestrictRadius());
                }
                Iterator<BlockPos> it = listPosChests.iterator();
