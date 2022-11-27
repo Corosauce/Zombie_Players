@@ -1,5 +1,6 @@
 package com.corosus.zombie_players.entity.ai;
 
+import com.corosus.coroutil.util.CULog;
 import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -42,7 +43,7 @@ public class EntityAIStayAtHomePosition extends Goal
     {
         if (!entity.isCalm() || entity.shouldWander || entity.shouldFollowOwner) return false;
 
-        if (entity.getRestrictCenter() != BlockPos.ZERO && !isCloseEnough()) {
+        if (!entity.getRestrictCenter().equals(BlockPos.ZERO) && !isCloseEnough()) {
             return true;
         }
 
