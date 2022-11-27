@@ -640,8 +640,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             if (scan) {
                for(ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
                   if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()) {
-                     if (this.wantsToPickUp(itementity.getItem())) {
-                        this.pickUpItem(itementity);
+                     if (this.wantsToPickUp(itementity.getItem()) && this.pickUpItemReturn(itementity)) {
+
                      } else if (shouldPickupExtraItems()) {
                         this.pickUpItemForExtraInventory(itementity);
                      }
@@ -676,6 +676,17 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             setTarget(null);
          }
       }
+   }
+
+   protected boolean pickUpItemReturn(ItemEntity p_21471_) {
+      ItemStack itemstack = p_21471_.getItem();
+      if (this.equipItemIfPossible(itemstack)) {
+         this.onItemPickup(p_21471_);
+         this.take(p_21471_, itemstack.getCount());
+         p_21471_.discard();
+         return true;
+      }
+      return false;
    }
 
 
@@ -944,7 +955,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       quiet = compound.getBoolean("quiet");
       canEatFromChests = compound.getBoolean("canEatFromChests");
       shouldFollowOwner = compound.getBoolean("shouldFollowOwner");
-      shouldWander = compound.getBoolean("shouldWander");
+      //protecting existing world data to not set to false
+      if (compound.contains("shouldWander")) shouldWander = compound.getBoolean("shouldWander");
       calmTime = compound.getInt("calmTime");
 
       ownerName = compound.getString("ownerName");
