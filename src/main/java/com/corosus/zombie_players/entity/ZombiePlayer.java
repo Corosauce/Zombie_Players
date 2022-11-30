@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 
 import com.corosus.coroutil.util.CULog;
 import com.corosus.coroutil.util.CoroUtilEntity;
+import com.corosus.modconfig.ConfigMod;
 import com.corosus.zombie_players.EntityRegistry;
 import com.corosus.zombie_players.Zombie_Players;
 import com.corosus.zombie_players.config.ConfigZombiePlayers;
@@ -266,7 +267,9 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          int particleCount = 5;
          SimpleParticleType particle = null;
 
-
+         //TODO: TESTING
+         /*ConfigZombiePlayers.Spawning_playerNamesToUse += ", " + "TEST";
+         ConfigMod.forceSaveAllFilesFromRuntimeSettings();*/
 
          //owner only interactions
          if (getOwner() != null && getOwner().getUUID().equals(player.getUUID())) {
