@@ -27,7 +27,7 @@ public class EntityAIFollowOwnerZombie extends Goal
     float minDist;
     private float oldWaterCost;
 
-    public static double TP_RANGE_SQ = 144.0D;
+    public static double TP_RANGE_SQ = 16 * 16;
 
     public EntityAIFollowOwnerZombie(ZombiePlayer tameableIn, double followSpeedIn, float minDistIn, float maxDistIn)
     {
@@ -69,6 +69,7 @@ public class EntityAIFollowOwnerZombie extends Goal
         }
     }
 
+    //used elsewhere for AI task checks, do not remove distance check here
     public static boolean needsToTeleportToOwner(ZombiePlayer entity) {
         if (!entity.isCalm() || !entity.shouldFollowOwner) return false;
         LivingEntity entitylivingbase = (LivingEntity) entity.getOwner();
@@ -116,13 +117,6 @@ public class EntityAIFollowOwnerZombie extends Goal
      */
     public void tick()
     {
-        this.entity.getLookControl().setLookAt(this.owner, 10.0F, (float)this.entity.getMaxHeadXRot());
-
-        if (!this.entity.isLeashed() && !this.entity.isPassenger()) {
-            if (this.entity.distanceToSqr(this.owner) >= 144.0D) {
-                this.teleportToOwner();
-            }
-        }
 
         if (true/*!this.tameable.isSitting()*/)
         {
@@ -158,13 +152,6 @@ public class EntityAIFollowOwnerZombie extends Goal
             }
         }
     }
-
-    /*protected boolean isTeleportFriendlyBlock(int x, int p_192381_2_, int y, int p_192381_4_, int p_192381_5_)
-    {
-        BlockPos blockpos = new BlockPos(x + p_192381_4_, y - 1, p_192381_2_ + p_192381_5_);
-        BlockState iblockstate = this.world.getBlockState(blockpos);
-        return iblockstate.getBlockFaceShape(this.world, blockpos, FaceInfo.DOWN) == BlockFaceShape.SOLID && iblockstate.canEntitySpawn(this.entity) && this.world.isAirBlock(blockpos.up()) && this.world.isAirBlock(blockpos.up(2));
-    }*/
 
     private boolean canTeleportTo(BlockPos p_25308_) {
         BlockPathTypes blockpathtypes = WalkNodeEvaluator.getBlockPathTypeStatic(this.world, p_25308_.mutable());

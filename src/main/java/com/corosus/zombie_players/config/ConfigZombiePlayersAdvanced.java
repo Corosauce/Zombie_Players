@@ -29,6 +29,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static boolean canPickupItemsWithMobGriefingOff = true;
 
+	public static int maxChestsUsablePerZombiePlayer = 4;
+
 	@Override
 	public String getName() {
 		return "Zombie_Players_Advanced";

@@ -2,6 +2,7 @@ package com.corosus.zombie_players.entity.ai;
 
 import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.ZombieAttackGoal;
 import net.minecraft.world.entity.monster.Zombie;
 
@@ -29,5 +30,16 @@ public class EntityAIZombieAttackWeaponReach extends ZombieAttackGoal {
             return super.getAttackReachSqr(attackTarget);
         }
 
+    }
+
+    @Override
+    protected void resetAttackCooldown() {
+        super.resetAttackCooldown();
+
+        //hook into attacking, and have them target zombie player on hit
+        LivingEntity livingentity = this.mob.getTarget();
+        if (livingentity != null && livingentity instanceof Mob) {
+            ((Mob) livingentity).setTarget(this.mob);
+        }
     }
 }

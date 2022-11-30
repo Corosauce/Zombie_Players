@@ -24,19 +24,25 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 public class EntityAIWorkInArea extends Goal
@@ -248,7 +254,23 @@ public class EntityAIWorkInArea extends Goal
                 foundRuleForBlock = true;
             }
 
-            if (foundRuleForBlock) {
+            if (entityObj.getWorkInfo().isExactMatchMode()) {
+
+                if (!entityObj.getWorkInfo().getStateWorkLastObserved().getBlock().equals(state.getBlock())) {
+                    return false;
+                }
+
+                for(Map.Entry<Property<?>, Comparable<?>> entry : state.getValues().entrySet()) {
+                    if (entityObj.getWorkInfo().getStateWorkLastObserved().hasProperty(entry.getKey())) {
+                        if (state.getValue(entry.getKey()) != entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey())) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                successfullMatchPhase1 = true;
+            } else if (foundRuleForBlock) {
                 if (info.property == null) {
                     successfullMatchPhase1 = true;
                 }
@@ -261,17 +283,6 @@ public class EntityAIWorkInArea extends Goal
                         successfullMatchPhase1 = true;
                     }
                 }
-            } else if (entityObj.getWorkInfo().isExactMatchMode()) {
-                for(Map.Entry<Property<?>, Comparable<?>> entry : state.getValues().entrySet()) {
-                    if (entityObj.getWorkInfo().getStateWorkLastObserved().hasProperty(entry.getKey())) {
-                        if (state.getValue(entry.getKey()) != entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey())) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                successfullMatchPhase1 = true;
             } else {
                 successfullMatchPhase1 = true;
             }
@@ -358,6 +369,8 @@ public class EntityAIWorkInArea extends Goal
                 if (operateOnTargetPosition(blockposGoal)) {
                     posNextWorkTarget = quickFindNeighborWorkBlock(posCurrentWorkTarget);
 
+                    posCurrentWorkTarget = BlockPos.ZERO;
+                } else {
                     posCurrentWorkTarget = BlockPos.ZERO;
                 }
 
@@ -478,6 +491,12 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public boolean operateOnTargetPosition(BlockPos pos) {
+
+        //sanity check for things like block changing by the time they arrived to operate on (eg 2 zombie players competing)
+        if (!isValidWorkBlock(pos)) {
+            return false;
+        }
+
         boolean performedAction = false;
         BlockState state = entityObj.level.getBlockState(pos);
         if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
@@ -524,17 +543,20 @@ public class EntityAIWorkInArea extends Goal
                         performedAction = true;
                     }
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_VEINMINE_TREE) {
-                    //TODO: says pos needs to be air for findTree, tweak this when you test
                     TreeCutter.Tree tree = TreeCutter.findTree(entityObj.level, pos);
-                    for (BlockPos posEntry : tree.getLogs()) {
-                        entityObj.level.destroyBlock(posEntry, true);
-                        performedAction = true;
+                    if (tree.equals(TreeCutter.NO_TREE)) {
+                        CULog.dbg("tree veinminer failed");
+                    } else {
+                        for (BlockPos posEntry : tree.getLogs()) {
+                            destroyBlockSilently(entityObj.level, posEntry, true, null, 512);
+                            performedAction = true;
+                        }
+                        for (BlockPos posEntry : tree.getLeaves()) {
+                            destroyBlockSilently(entityObj.level, posEntry, true, null, 512);
+                            performedAction = true;
+                        }
+                        entityObj.level.destroyBlock(pos, true);
                     }
-                    for (BlockPos posEntry : tree.getLeaves()) {
-                        entityObj.level.destroyBlock(posEntry, true);
-                        performedAction = true;
-                    }
-                    entityObj.level.destroyBlock(pos, true);
                 } else if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_ALL_BUT_BOTTOM) {
                     //if (entityObj.level.getBlockState(pos.below()).getBlock() == entityObj.getWorkInfo().getStateWorkLastObserved().getBlock()) {
                         entityObj.level.destroyBlock(pos, true);
@@ -567,6 +589,31 @@ public class EntityAIWorkInArea extends Goal
 
 
         return true;
+    }
+
+    //copy of Level.destroyBlock minus sound event
+    public boolean destroyBlockSilently(Level level, BlockPos p_46626_, boolean p_46627_, @Nullable Entity p_46628_, int p_46629_) {
+        BlockState blockstate = level.getBlockState(p_46626_);
+        if (blockstate.isAir()) {
+            return false;
+        } else {
+            FluidState fluidstate = level.getFluidState(p_46626_);
+            /*if (!(blockstate.getBlock() instanceof BaseFireBlock)) {
+                level.levelEvent(2001, p_46626_, Block.getId(blockstate));
+            }*/
+
+            if (p_46627_) {
+                BlockEntity blockentity = blockstate.hasBlockEntity() ? level.getBlockEntity(p_46626_) : null;
+                Block.dropResources(blockstate, level, p_46626_, blockentity, p_46628_, ItemStack.EMPTY);
+            }
+
+            boolean flag = level.setBlock(p_46626_, fluidstate.createLegacyBlock(), 3, p_46629_);
+            if (flag) {
+                level.gameEvent(p_46628_, GameEvent.BLOCK_DESTROY, p_46626_);
+            }
+
+            return flag;
+        }
     }
 
     public BlockInfo getBlockInfo(BlockState state) {

@@ -16,6 +16,8 @@ public class EntityAIPlayZombiePlayer extends Goal
     private LivingEntity target;
     private final double speed;
     private int playTime;
+    private long lastPlayTime = -1;
+    private long playTimeCoolDownAmount = 20*60*5;
 
     public EntityAIPlayZombiePlayer(ZombiePlayer villagerIn, double speedIn)
     {
@@ -29,7 +31,8 @@ public class EntityAIPlayZombiePlayer extends Goal
      */
     public boolean canUse()
     {
-        if (!zombiePlayer.isCalm() || zombiePlayer.shouldFollowOwner) return false;
+        if (!zombiePlayer.isCalm() || zombiePlayer.shouldFollowOwner || !zombiePlayer.shouldWander) return false;
+        if (zombiePlayer.getLevel().getGameTime() < lastPlayTime + playTimeCoolDownAmount) return false;
         if (CU.rand().nextInt(200) != 0)
         {
             return false;
@@ -91,6 +94,7 @@ public class EntityAIPlayZombiePlayer extends Goal
         zombiePlayer.markStartPlaying();
 
         this.playTime = 1000;
+        this.lastPlayTime = zombiePlayer.getLevel().getGameTime();
     }
 
     /**

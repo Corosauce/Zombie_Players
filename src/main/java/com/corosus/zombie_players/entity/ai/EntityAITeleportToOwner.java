@@ -1,6 +1,5 @@
 package com.corosus.zombie_players.entity.ai;
 
-import com.corosus.coroutil.util.CULog;
 import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -16,22 +15,23 @@ import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 
 import java.util.EnumSet;
 
-public class EntityAIStayAtHomePosition extends Goal
+public class EntityAITeleportToOwner extends Goal
 {
     private final ZombiePlayer entity;
+    private LivingEntity owner;
     Level world;
-    private final double followSpeed;
     private final PathNavigation petPathfinder;
     private int timeToRecalcPath;
+    float maxDist;
+    float minDist;
     private float oldWaterCost;
 
-    public static double TP_RANGE_SQ = 32*32;
+    public static double TP_RANGE_SQ = 16 * 16;
 
-    public EntityAIStayAtHomePosition(ZombiePlayer tameableIn, double followSpeedIn)
+    public EntityAITeleportToOwner(ZombiePlayer tameableIn)
     {
         this.entity = tameableIn;
         this.world = tameableIn.level;
-        this.followSpeed = followSpeedIn;
         this.petPathfinder = tameableIn.getNavigation();
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
@@ -41,43 +41,28 @@ public class EntityAIStayAtHomePosition extends Goal
      */
     public boolean canUse()
     {
-        if (!entity.isCalm() || entity.shouldWander || entity.shouldFollowOwner) return false;
 
-        if (entity.getRestrictCenter() == null || entity.getRestrictCenter().equals(BlockPos.ZERO)) {
-            return false;
-        }
-
-        if (!world.isLoaded(entity.getRestrictCenter())) {
-            return false;
-        }
-
-        if (!isCloseEnough()) {
-            return true;
-        }
-
-        return false;
-    }
-
-    public boolean isCloseEnough() {
-        return entity.blockPosition().distSqr(entity.getRestrictCenter()) <= 0.5;
-    }
-
-    public boolean isFarEnoughToTeleport() {
-        return entity.blockPosition().distSqr(entity.getRestrictCenter()) > TP_RANGE_SQ;
-    }
-
-    public static boolean needsToTeleportToOwner(ZombiePlayer entity) {
         if (!entity.isCalm() || !entity.shouldFollowOwner) return false;
-        LivingEntity entitylivingbase = (LivingEntity) entity.getOwner();
+
+        LivingEntity entitylivingbase = (LivingEntity) this.entity.getOwner();
+
         if (entitylivingbase == null)
         {
             return false;
-        } else if (entitylivingbase instanceof Player && ((Player)entitylivingbase).isSpectator()) {
-            return false;
-        } else if (entity.distanceToSqr(entitylivingbase) < TP_RANGE_SQ) {
+        }
+        else if (entitylivingbase instanceof Player && ((Player)entitylivingbase).isSpectator())
+        {
             return false;
         }
-        return true;
+        else if (this.entity.distanceToSqr(entitylivingbase) < TP_RANGE_SQ)
+        {
+            return false;
+        }
+        else
+        {
+            this.owner = entitylivingbase;
+            return true;
+        }
     }
 
     /**
@@ -85,7 +70,7 @@ public class EntityAIStayAtHomePosition extends Goal
      */
     public boolean canContinueToUse()
     {
-        return canUse();
+        return (entity.isCalm() && entity.shouldFollowOwner) && (!this.petPathfinder.isDone() && this.entity.distanceToSqr(this.owner) > TP_RANGE_SQ);
     }
 
     /**
@@ -103,6 +88,7 @@ public class EntityAIStayAtHomePosition extends Goal
      */
     public void stop()
     {
+        this.owner = null;
         this.petPathfinder.stop();
         this.entity.setPathfindingMalus(BlockPathTypes.WATER, this.oldWaterCost);
     }
@@ -113,44 +99,8 @@ public class EntityAIStayAtHomePosition extends Goal
     public void tick()
     {
         if (!this.entity.isLeashed() && !this.entity.isPassenger()) {
-            if (isFarEnoughToTeleport()) {
-                if (this.teleportToHome()) {
-                    return;
-                }
-            }
-        }
-
-        if (true/*!this.tameable.isSitting()*/)
-        {
-            if (--this.timeToRecalcPath <= 0)
-            {
-                this.timeToRecalcPath = 10;
-
-                if (!this.petPathfinder.moveTo(this.entity.getRestrictCenter().getX() + 0.5F, this.entity.getRestrictCenter().getY(), this.entity.getRestrictCenter().getZ() + 0.5F, this.followSpeed))
-                {
-                    if (!this.entity.isLeashed() && !this.entity.isPassenger())
-                    {
-                        if (isFarEnoughToTeleport())
-                        {
-                            int i = Mth.floor(this.entity.getRestrictCenter().getX()) - 2;
-                            int j = Mth.floor(this.entity.getRestrictCenter().getZ()) - 2;
-                            int k = Mth.floor(this.entity.getRestrictCenter().getY());
-
-                            for (int l = 0; l <= 4; ++l)
-                            {
-                                for (int i1 = 0; i1 <= 4; ++i1)
-                                {
-                                    if ((l < 1 || i1 < 1 || l > 3 || i1 > 3) && this.canTeleportTo(new BlockPos(i, j, k)))
-                                    {
-                                        this.entity.moveTo((double)((float)(i + l) + 0.5F), (double)k, (double)((float)(j + i1) + 0.5F), this.entity.getYRot(), this.entity.getXRot());
-                                        this.petPathfinder.stop();
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            if (this.entity.distanceToSqr(this.owner) >= TP_RANGE_SQ) {
+                this.teleportToOwner();
             }
         }
     }
@@ -170,8 +120,8 @@ public class EntityAIStayAtHomePosition extends Goal
         }
     }
 
-    private boolean teleportToHome() {
-        BlockPos blockpos = this.entity.getRestrictCenter();
+    private void teleportToOwner() {
+        BlockPos blockpos = this.owner.blockPosition();
 
         for(int i = 0; i < 10; ++i) {
             int j = this.randomIntInclusive(-3, 3);
@@ -179,10 +129,10 @@ public class EntityAIStayAtHomePosition extends Goal
             int l = this.randomIntInclusive(-3, 3);
             boolean flag = this.maybeTeleportTo(blockpos.getX() + j, blockpos.getY() + k, blockpos.getZ() + l);
             if (flag) {
-                return true;
+                return;
             }
         }
-        return false;
+
     }
 
     private int randomIntInclusive(int p_25301_, int p_25302_) {
@@ -190,7 +140,9 @@ public class EntityAIStayAtHomePosition extends Goal
     }
 
     private boolean maybeTeleportTo(int p_25304_, int p_25305_, int p_25306_) {
-        if (!this.canTeleportTo(new BlockPos(p_25304_, p_25305_, p_25306_))) {
+        if (Math.abs((double)p_25304_ - this.owner.getX()) < 2.0D && Math.abs((double)p_25306_ - this.owner.getZ()) < 2.0D) {
+            return false;
+        } else if (!this.canTeleportTo(new BlockPos(p_25304_, p_25305_, p_25306_))) {
             return false;
         } else {
             this.entity.moveTo((double)p_25304_ + 0.5D, (double)p_25305_, (double)p_25306_ + 0.5D, this.entity.getYRot(), this.entity.getXRot());

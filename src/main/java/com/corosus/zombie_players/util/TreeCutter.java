@@ -82,8 +82,8 @@ public class TreeCutter {
 		}
 
 		// Regular Tree
-		if (!validateCut(reader, pos))
-			return NO_TREE;
+		/*if (!validateCut(reader, pos))
+			return NO_TREE;*/
 
 		visited.add(pos);
 		BlockPos.betweenClosedStream(pos.offset(-1, 0, -1), pos.offset(1, 1, 1))

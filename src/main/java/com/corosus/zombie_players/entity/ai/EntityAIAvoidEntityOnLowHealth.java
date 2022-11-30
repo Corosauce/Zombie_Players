@@ -76,7 +76,7 @@ public class EntityAIAvoidEntityOnLowHealth<T extends Entity> extends Goal
         }
 
         List<T> list = this.theEntity.level.getEntitiesOfClass(this.classToAvoid,
-                this.theEntity.getBoundingBox().expandTowards((double)this.avoidDistance, 3.0D, (double)this.avoidDistance),
+                this.theEntity.getBoundingBox().expandTowards((double)this.avoidDistance, 4.0D, (double)this.avoidDistance),
                 ZombiePlayer.ENEMY_PREDICATE);
 
         if (list.isEmpty())

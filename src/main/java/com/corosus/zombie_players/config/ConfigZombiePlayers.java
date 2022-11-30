@@ -29,7 +29,7 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	public static boolean Spawning_spawnZombiePlayersNaturally = true;
 
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Weight of zombie players, higher = more likely to spawn, vanilla sets zombie as 100")
-	public static int Spawning_weight = 20;
+	public static int Spawning_weight = 40;
 
 	@ConfigComment("Only used it Spawning_spawnZombiePlayersNaturally is true. Minecraft profile names to use when naturally spawning in zombie players")
 	public static String Spawning_playerNamesToUse = "PhoenixfireLune, Corosus, Cojomax99, Mr_okushama, tterrag, medsouz, NotActuallyTerry, MrRube";
