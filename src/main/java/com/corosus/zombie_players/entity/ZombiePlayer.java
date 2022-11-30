@@ -272,7 +272,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          if (getOwner() != null && getOwner().getUUID().equals(player.getUUID())) {
             if (isCalm() && itemstack.getItem() instanceof BoatItem) {
                if (getOwner().isPassenger()) {
-                  this.stopRiding();
+                  getOwner().stopRiding();
                } else {
                   getOwner().startRiding(this);
                }

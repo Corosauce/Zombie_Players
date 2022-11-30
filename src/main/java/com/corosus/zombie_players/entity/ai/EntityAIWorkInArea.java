@@ -371,7 +371,9 @@ public class EntityAIWorkInArea extends Goal
 
                     posCurrentWorkTarget = BlockPos.ZERO;
                 } else {
+                    CULog.dbg("target block no longer valid, aborting");
                     posCurrentWorkTarget = BlockPos.ZERO;
+                    posNextWorkTarget = BlockPos.ZERO;
                 }
 
                 entityObj.getNavigation().stop();
