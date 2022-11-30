@@ -48,16 +48,16 @@ public class EventHandlerForge {
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-		if (ConfigZombiePlayers.automaticallyAddJoinedPlayersToNamesList) {
-			if (!ConfigZombiePlayers.Spawning_playerNamesToUse.contains(event.getEntity().getName().getString())) {
+		/*if (ConfigZombiePlayers.automaticallyAddJoinedPlayersToNamesList) {
+			if (!ConfigZombiePlayers.Spawning_playerNamesToUse.contains(event.getEntity().getDisplayName().getString())) {
 				if (ConfigZombiePlayers.Spawning_playerNamesToUse.length() == 0) {
-					ConfigZombiePlayers.Spawning_playerNamesToUse = event.getEntity().getName().getString();
+					ConfigZombiePlayers.Spawning_playerNamesToUse = event.getEntity().getDisplayName().getString();
 				} else {
-					ConfigZombiePlayers.Spawning_playerNamesToUse += ", " + event.getEntity().getName().toString();
+					ConfigZombiePlayers.Spawning_playerNamesToUse += ", " + event.getEntity().getDisplayName().getString();
 				}
 				ConfigMod.forceSaveAllFilesFromRuntimeSettings();
 			}
-		}
+		}*/
 	}
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
