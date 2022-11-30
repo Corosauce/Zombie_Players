@@ -18,7 +18,7 @@ apply plugin: 'net.minecraftforge.gradle'
 ext.buildnumber = 0
 ext.projversion = 0
 
-version = "1.18.2-1.3.7"
+version = "1.18.2-1.3.8"
 group= "zombie_players" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "zombie_players"
 

@@ -267,10 +267,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          int particleCount = 5;
          SimpleParticleType particle = null;
 
-         //TODO: TESTING
-         /*ConfigZombiePlayers.Spawning_playerNamesToUse += ", " + "TEST";
-         ConfigMod.forceSaveAllFilesFromRuntimeSettings();*/
-
          //owner only interactions
          if (getOwner() != null && getOwner().getUUID().equals(player.getUUID())) {
             if (isCalm() && itemstack.getItem() instanceof BoatItem) {
