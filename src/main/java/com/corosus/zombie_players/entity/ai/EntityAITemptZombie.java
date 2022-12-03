@@ -54,6 +54,7 @@ public class EntityAITemptZombie extends Goal
      */
     public boolean canUse()
     {
+        if (!temptedEntity.isCalm()) return false;
         if (temptedEntity.getTarget() != null) return false;
         if (this.delayTemptCounter > 0)
         {
@@ -62,7 +63,9 @@ public class EntityAITemptZombie extends Goal
         }
         else
         {
-            this.temptingPlayer = this.temptedEntity.level.getNearestPlayer(this.temptedEntity, 18.0D);
+            //this.temptingPlayer = this.temptedEntity.level.getNearestPlayer(this.temptedEntity, 18.0D);
+            //only let it work with owner now
+            this.temptingPlayer = temptedEntity.getPlayer();
 
             if (this.temptingPlayer == null)
             {
@@ -70,7 +73,7 @@ public class EntityAITemptZombie extends Goal
             }
             else
             {
-                return this.isTempting(this.temptingPlayer.getMainHandItem()) || this.isTempting(this.temptingPlayer.getOffhandItem());
+                return this.temptedEntity.distanceTo(this.temptingPlayer) <= 18 && this.isTempting(this.temptingPlayer.getMainHandItem()) || this.isTempting(this.temptingPlayer.getOffhandItem());
             }
         }
     }

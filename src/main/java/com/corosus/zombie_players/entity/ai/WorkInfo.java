@@ -21,7 +21,7 @@ public class WorkInfo {
     private Direction workClickDirectionLastObserved = Direction.UP;
     private boolean inTrainingMode = false;
     private boolean inAreaSetMode = false;
-    private boolean exactMatchMode = false;
+    private boolean exactMatchMode = true;
     private BlockPos workAreaPos1 = BlockPos.ZERO;
     private BlockHitResult blockHitResult = null;
 

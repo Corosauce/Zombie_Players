@@ -115,6 +115,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    private int itemUseTime = 0;
    private boolean showWorkInfo = false;
 
+   private boolean hasEverBeenCalmed = false;
+
    private String fakePlayerUUIDString = "4e6ff94b-e7bd-4e36-b86b-c0431aa69418";
    private UUID fakePlayerUUID = UUIDTypeAdapter.fromString(fakePlayerUUIDString);
 
@@ -600,41 +602,40 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                }
             }
 
+            if (level.getGameTime() % ConfigZombiePlayersAdvanced.heal1HealthPerXTicks == 0) {
+               this.heal(1);
+            }
 
-         }
+            //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
+            if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && level.getGameTime() % 20 == 0)) {
+               for (ItemEntity entityitem : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
+                  if (entityitem.isAlive() && !entityitem.getItem().isEmpty() && !entityitem.hasPickUpDelay() && isItemWeWant(entityitem.getItem())) {
+                     //this.updateEquipmentIfNeeded(entityitem);
+                     this.onItemPickup(entityitem/*, entityitem.getItem().getCount()*/);
+                     entityitem.kill();
+                     ateCalmingItem();
 
-         if (level.getGameTime() % ConfigZombiePlayersAdvanced.heal1HealthPerXTicks == 0) {
-            this.heal(1);
-         }
-
-         //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
-         if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && level.getGameTime() % 20 == 0)) {
-            for (ItemEntity entityitem : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
-               if (entityitem.isAlive() && !entityitem.getItem().isEmpty() && !entityitem.hasPickUpDelay() && isItemWeWant(entityitem.getItem())) {
-                  //this.updateEquipmentIfNeeded(entityitem);
-                  this.onItemPickup(entityitem/*, entityitem.getItem().getCount()*/);
-                  entityitem.kill();
-                  ateCalmingItem();
-
-                  //only have 1 ate a time to stagger hogging
-                  break;
+                     //only have 1 ate a time to stagger hogging
+                     break;
+                  }
                }
             }
-         }
 
-         if (level.getGameTime() % 20 == 0) {
-            if (isItemWeWant(getMainHandItem())) {
-               for (int i = 0; i < getMainHandItem().getCount(); i++) {
+            //eat from main hand
+            if (level.getGameTime() % 20 == 0) {
+               if (isItemWeWant(getMainHandItem())) {
+                  for (int i = 0; i < getMainHandItem().getCount(); i++) {
 
-                  //only do effect sounds and visuals once
-                  if (i == 0) {
-                     ateCalmingItem(true);
-                  } else {
-                     ateCalmingItem(false);
+                     //only do effect sounds and visuals once
+                     if (i == 0) {
+                        ateCalmingItem(true);
+                     } else {
+                        ateCalmingItem(false);
+                     }
+
                   }
-
+                  setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
                }
-               setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             }
          }
       }
@@ -868,6 +869,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putBoolean("shouldFollowOwner", shouldFollowOwner);
       compound.putBoolean("shouldWander", shouldWander);
       compound.putInt("calmTime", calmTime);
+      compound.putBoolean("hasEverBeenCalmed", hasEverBeenCalmed);
 
       compound.putString("ownerName", ownerName);
 
@@ -966,6 +968,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       //protecting existing world data to not set to false
       if (compound.contains("shouldWander")) shouldWander = compound.getBoolean("shouldWander");
       calmTime = compound.getInt("calmTime");
+      hasEverBeenCalmed = compound.getBoolean("hasEverBeenCalmed");
 
       ownerName = compound.getString("ownerName");
 
@@ -1198,6 +1201,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       if (!isCalm()) {
          onBecomeCalm();
+         setHasEverBeenCalmed(true);
       }
 
       if (!hasOwner()) {
@@ -1210,7 +1214,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       this.calmTime += ConfigZombiePlayersAdvanced.calmTimePerUse;
 
       this.setTarget(null);
-      //this.setRevengeTarget(null);
 
       this.heal((float) ConfigZombiePlayersAdvanced.healPerUse);
       if (effect) {
@@ -2089,5 +2092,13 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    @Override
    public boolean isPreventingPlayerRest(Player p_33036_) {
       return !isCalm();
+   }
+
+   public boolean isHasEverBeenCalmed() {
+      return hasEverBeenCalmed;
+   }
+
+   public void setHasEverBeenCalmed(boolean hasEverBeenCalmed) {
+      this.hasEverBeenCalmed = hasEverBeenCalmed;
    }
 }
