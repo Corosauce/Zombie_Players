@@ -13,8 +13,9 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
 public class ZombiePlayerRendererImpl extends ZombiePlayerRendererAbstract<ZombiePlayer, ZombiePlayerModelZombieBased<ZombiePlayer>> {
+
    public ZombiePlayerRendererImpl(EntityRendererProvider.Context p_174456_) {
-      this(p_174456_, ModelLayers.ZOMBIE, ModelLayers.ZOMBIE_INNER_ARMOR, ModelLayers.ZOMBIE_OUTER_ARMOR);
+      this(p_174456_, ModelLayers.PLAYER_SLIM, ModelLayers.ZOMBIE_INNER_ARMOR, ModelLayers.ZOMBIE_OUTER_ARMOR);
    }
 
    public ZombiePlayerRendererImpl(EntityRendererProvider.Context p_174458_, ModelLayerLocation p_174459_, ModelLayerLocation p_174460_, ModelLayerLocation p_174461_) {
