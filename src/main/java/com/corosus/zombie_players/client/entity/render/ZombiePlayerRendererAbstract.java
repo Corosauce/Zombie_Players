@@ -20,13 +20,9 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M extends ZombiePlayerModelZombieBased<T>> extends HumanoidMobRenderer<T, M> {
    private static final ResourceLocation ZOMBIE_LOCATION = new ResourceLocation("textures/entity/zombie/zombie.png");
 
-   public static final ModelLayerLocation WAT = null;
-
    protected ZombiePlayerRendererAbstract(EntityRendererProvider.Context p_173910_, M p_173911_, M p_173912_, M p_173913_) {
       super(p_173910_, p_173911_, 0.5F);
       this.addLayer(new HumanoidArmorLayer<>(this, p_173912_, p_173913_));
-      //this.addLayer(new SaddleLayer<>(this, new PigModel<>(p_173910_.bakeLayer(ModelLayers.PIG_SADDLE)), new ResourceLocation("textures/entity/pig/pig_saddle.png")));
-      //this.addLayer(new ZombificationLayer<>(this, new ZombiePlayerModelZombieBased<>(p_173910_.bakeLayer(WAT)), new ResourceLocation("textures/entity/zombification.png")));
       this.addLayer(new ZombificationLayer<>(this, p_173911_, new ResourceLocation(Zombie_Players.MODID,"textures/entity/zombification.png")));
    }
 
@@ -50,7 +46,6 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M ext
             if (data.getTemp() != null) {
                //actually load in the texture and data if its waiting to be loaded (must done done from gl context thread)
                data.setTexture(Minecraft.getInstance().getSkinManager().registerTexture(data.getTemp(), MinecraftProfileTexture.Type.SKIN));
-               //data.setTexture(Minecraft.getInstance().getSkinManager().loadSkin(data.getTemp(), MinecraftProfileTexture.Type.SKIN, null));
                String model = data.getTemp().getMetadata("model");
                if (model != null) {
                   data.setSlim(model.equals("slim"));
@@ -73,7 +68,7 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M ext
    }
 
    protected boolean isShaking(T p_113773_) {
-      return super.isShaking(p_113773_) || p_113773_.isUnderWaterConverting()/* || p_113773_.getCalmTime() <= p_113773_.calmTicksLow*/;
+      return super.isShaking(p_113773_) || p_113773_.isUnderWaterConverting();
    }
 
 

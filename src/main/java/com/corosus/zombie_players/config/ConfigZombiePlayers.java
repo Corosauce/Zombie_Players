@@ -84,21 +84,9 @@ public class ConfigZombiePlayers implements IConfigCategory {
 			CULog.dbg("Processing calming items list for Zombie Players");
 			String[] names2 = calmingItems.split(",");
 			for (int i = 0; i < names2.length; i++) {
-				//remove spaces
 				names2[i] = names2[i].trim();
 
-				/*if (names[i].contains("ore:")) {
-					String oreDictName = names[i].split(":")[1];
-					CULog.dbg("processing ore dictionary entry: " + oreDictName);
-					NonNullList<ItemStack> stacks = OreDictionary.getOres(oreDictName);
-					if (stacks.size() == 0) {
-						CULog.dbg("none found for ore dictionary name: " + oreDictName);
-					}
-					for (ItemStack stack : stacks) {
-						CULog.dbg("adding ore dict'd item: " + stack.getItem().getRegistryName());
-						Zombie_Players.listCalmingItems.add(stack.getItem());
-					}
-				} else */{
+				{
 					if (names2[i].equals("#food")) {
 						CULog.dbg("Matching any food item for zombie players");
 						Zombie_Players.matchAnyFood = true;

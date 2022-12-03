@@ -996,11 +996,14 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       //this.createInventory();
       ListTag listtag = compound.getList("Items", 10);
 
-      for(int i = 0; i < listtag.size(); ++i) {
-         CompoundTag compoundtag = listtag.getCompound(i);
-         int j = compoundtag.getByte("Slot") & 255;
-         if (j >= 2 && j < this.getExtraInventory().getContainerSize()) {
-            this.getExtraInventory().setItem(j, ItemStack.of(compoundtag));
+      //because mods like Portable Cells likes to try and load entities on the client side,
+      if (!level.isClientSide()) {
+         for (int i = 0; i < listtag.size(); ++i) {
+            CompoundTag compoundtag = listtag.getCompound(i);
+            int j = compoundtag.getByte("Slot") & 255;
+            if (j >= 2 && j < this.getExtraInventory().getContainerSize()) {
+               this.getExtraInventory().setItem(j, ItemStack.of(compoundtag));
+            }
          }
       }
 

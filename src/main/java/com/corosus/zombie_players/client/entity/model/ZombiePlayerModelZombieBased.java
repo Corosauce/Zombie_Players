@@ -30,10 +30,6 @@ public class ZombiePlayerModelZombieBased<T extends Zombie> extends AbstractZomb
       this.hat.xRot = headbob;
       this.rightArm.xRot += 30 * Mth.DEG_TO_RAD;
       this.leftArm.xRot += 30 * Mth.DEG_TO_RAD;
-
-      //AnimationUtils.animateZombieArms(this.leftArm, this.rightArm, this.isAggressive(p_102001_), this.attackTime, p_102004_);
-
-      //this.body.zRot = 0;
    }
 
    @Override
