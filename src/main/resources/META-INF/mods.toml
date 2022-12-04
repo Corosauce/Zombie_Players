@@ -13,6 +13,6 @@ Brainssss
 [[dependencies.zombie_players]]
 modId="coroutil"
 mandatory=true
-versionRange="[1.18.1-1.2.38,1.18.1-1.5)"
+versionRange="[1.18.1-1.2.42,)"
 ordering="NONE"
 side="BOTH"
