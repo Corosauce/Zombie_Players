@@ -956,7 +956,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       }
 
       if (compound.contains("home_Backup_X")) {
-         homePositionBackup = new BlockPos(compound.getInt("home_Backup_X"), compound.getInt("home_Backup_X"), compound.getInt("home_Backup_X"));
+         homePositionBackup = new BlockPos(compound.getInt("home_Backup_X"), compound.getInt("home_Backup_Y"), compound.getInt("home_Backup_Z"));
          homeDistBackup = (int)compound.getFloat("home_Backup_Dist");
       }
 
