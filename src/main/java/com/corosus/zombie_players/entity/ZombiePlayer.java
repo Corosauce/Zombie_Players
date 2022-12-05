@@ -1183,7 +1183,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       setCanEquip(ConfigZombiePlayers.pickupLootWhenCalm);
       this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.28D);
       this.getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1F);
-      this.shouldFollowOwner = true;
+      if (!isHasEverBeenCalmed()) {
+         setHasEverBeenCalmed(true);
+         this.shouldFollowOwner = true;
+      }
    }
 
    public void onBecomeHostile() {
