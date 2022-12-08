@@ -30,8 +30,6 @@ public class EntityRegistry {
                         .sized(0.6F, 1.95F)
                         .build("zombie_player")
                         .setRegistryName("zombie_player"));
-
-        SpawnPlacements.register(zombie_player, SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
     }
 
     @SubscribeEvent
