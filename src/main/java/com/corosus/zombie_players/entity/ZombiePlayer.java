@@ -982,7 +982,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       if (compound.contains("work_blockstate")) getWorkInfo().setStateWorkLastObserved(NbtUtils.readBlockState(compound.getCompound("work_blockstate")));
 
       if (compound.contains("work_item")) getWorkInfo().setItemNeededForWork(ItemStack.of(compound.getCompound("work_item")));
-      CULog.dbg(getWorkInfo().getItemNeededForWork().toString());
+
       if (compound.contains("work_direction")) getWorkInfo().setWorkClickDirectionLastObserved(Direction.byName(compound.getString("work_direction")));
 
       if (compound.contains("work_click")) getWorkInfo().setWorkClickLastObserved(EnumTrainType.get(compound.getInt("work_click")));
@@ -1324,11 +1324,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean isValidChestForFood(BlockPos pos, boolean sightCheck) {
-      return isWithinRestriction(pos) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
+      return (isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F))) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
    }
 
    public boolean isValidChestForWork(BlockPos pos, boolean sightCheck) {
-      return isWithinRestriction(pos) && chestHasRoom(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
+      return (isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F))) && chestHasRoom(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
    }
 
    public void tickScanForChests() {

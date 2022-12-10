@@ -331,7 +331,7 @@ public class EntityAIWorkInArea extends Goal
     }
 
     public boolean isWithinRestrictions(BlockPos pos) {
-        return entityObj.isWithinRestriction(pos) && this.entityObj.getWorkInfo().getPosWorkArea().contains(pos.getX(), pos.getY(), pos.getZ());
+        return /*entityObj.isWithinRestriction(pos) && */this.entityObj.getWorkInfo().getPosWorkArea().contains(pos.getX(), pos.getY(), pos.getZ());
     }
 
     public boolean hasLineOfSight(LivingEntity source, BlockPos p_147185_) {
