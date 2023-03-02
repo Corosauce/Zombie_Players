@@ -43,6 +43,9 @@ public class ConfigZombiePlayers implements IConfigCategory {
 	@ConfigComment("items that will calm the zombie and let you train them, #food is a special match that will allow anything that the player can eat since a generic food data tag doesnt seem to exist yet")
 	public static String calmingItems = "#food, minecraft:porkchop, minecraft:mutton, minecraft:tropical_fish, minecraft:beef, minecraft:chicken, minecraft:rabbit, minecraft:bread";
 
+	@ConfigComment("Shows name when looked at while hostile")
+	public static boolean showNameWhenHostile = true;
+
 	@Override
 	public String getName() {
 		return "Zombie_Players";

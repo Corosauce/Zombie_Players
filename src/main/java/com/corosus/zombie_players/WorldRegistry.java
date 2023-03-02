@@ -20,15 +20,13 @@ public class WorldRegistry {
 
     @SubscribeEvent
     public static void onBiomesLoad(BiomeLoadingEvent event) {
-        if (ConfigZombiePlayers.Spawning_spawnZombiePlayersNaturally) {
-            if (event.getSpawns().getSpawner(MobCategory.MONSTER).stream().anyMatch((entry) -> entry.type == EntityType.ZOMBIE)) {
-                CULog.dbg("Adding zombie player spawning to biome category: " + event.getName());
-                event.getSpawns().getSpawner(MobCategory.MONSTER).add(new MobSpawnSettings.SpawnerData(EntityRegistry.zombie_player, Math.max(1, ConfigZombiePlayers.Spawning_weight), 1, 1));
-            }
+        if (event.getSpawns().getSpawner(MobCategory.MONSTER).stream().anyMatch((entry) -> entry.type == EntityType.ZOMBIE)) {
+            CULog.dbg("Adding zombie player spawning to biome category: " + event.getName());
+            event.getSpawns().getSpawner(MobCategory.MONSTER).add(new MobSpawnSettings.SpawnerData(EntityRegistry.zombie_player, Math.max(1, ConfigZombiePlayers.Spawning_weight), 1, 1));
+        }
 
-            if (SpawnPlacements.getPlacementType(EntityRegistry.zombie_player) == SpawnPlacements.Type.NO_RESTRICTIONS) {
-                SpawnPlacements.register(EntityRegistry.zombie_player, SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
-            }
+        if (SpawnPlacements.getPlacementType(EntityRegistry.zombie_player) == SpawnPlacements.Type.NO_RESTRICTIONS) {
+            SpawnPlacements.register(EntityRegistry.zombie_player, SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
         }
     }
 

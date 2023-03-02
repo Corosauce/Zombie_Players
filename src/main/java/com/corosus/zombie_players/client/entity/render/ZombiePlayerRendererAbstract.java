@@ -19,6 +19,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M extends ZombiePlayerModelZombieBased<T>> extends HumanoidMobRenderer<T, M> {
    private static final ResourceLocation ZOMBIE_LOCATION = new ResourceLocation("textures/entity/zombie/zombie.png");
+   private static final ResourceLocation PLAYER_LOCATION = new ResourceLocation("textures/entity/steve.png");
 
    protected ZombiePlayerRendererAbstract(EntityRendererProvider.Context p_173910_, M p_173911_, M p_173912_, M p_173913_) {
       super(p_173910_, p_173911_, 0.5F);
@@ -31,7 +32,7 @@ public abstract class ZombiePlayerRendererAbstract<T extends ZombiePlayer, M ext
       if (cache != null) {
          return cache.getTexture();
       } else {
-         return ZOMBIE_LOCATION;
+         return PLAYER_LOCATION;
       }
    }
 

@@ -37,6 +37,8 @@ public class ZombiePlayerRendererRouter extends ZombiePlayerRendererAbstract<Zom
          } else {
             renderNormal.render(entity, p_115456_, partialTicks, poseStack, p_115459_, p_115460_);
          }
+      } else {
+         renderNormal.render(entity, p_115456_, partialTicks, poseStack, p_115459_, p_115460_);
       }
    }
 

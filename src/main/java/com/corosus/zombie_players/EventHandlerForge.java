@@ -12,6 +12,7 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
@@ -22,8 +23,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.VanillaGameEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -150,5 +153,14 @@ public class EventHandlerForge {
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onGameEvent(VanillaGameEvent event) {
 		event.setCanceled(true);
+	}
+
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public void onSpawn(LivingSpawnEvent.CheckSpawn event) {
+		if (event.getEntity() instanceof ZombiePlayer && event.getSpawnReason() == MobSpawnType.NATURAL) {
+			if (!ConfigZombiePlayers.Spawning_spawnZombiePlayersNaturally) {
+				event.setResult(Event.Result.DENY);
+			}
+		}
 	}
 }

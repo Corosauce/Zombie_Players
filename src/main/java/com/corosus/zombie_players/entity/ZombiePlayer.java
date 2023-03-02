@@ -151,7 +151,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
          ZombiePlayer zombie = new ZombiePlayer(EntityRegistry.zombie_player, world);
          zombie.setPos(x, y, z);
          zombie.setGameProfile(profile);
-         zombie.finalizeSpawn((ServerLevelAccessor) world, world.getCurrentDifficultyAt(new BlockPos(x, y, z)), MobSpawnType.NATURAL, (SpawnGroupData)null, (CompoundTag)null);
+         zombie.finalizeSpawn((ServerLevelAccessor) world, world.getCurrentDifficultyAt(new BlockPos(x, y, z)), MobSpawnType.SPAWN_EGG, (SpawnGroupData)null, (CompoundTag)null);
          zombie.setPersistenceRequired();
          zombie.spawnedFromPlayerDeath = true;
          world.addFreshEntity(zombie);
@@ -499,8 +499,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public void tick() {
       if (risingTime < risingTimeMax) risingTime++;
 
-      //calmTime = this.calmTicksLow;
-
       if (!level.isClientSide()) {
          if (calmTime > 0) {
 
@@ -638,6 +636,18 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                }
             }
          }
+
+         //retroactively add names vanilla style for new feature support
+         if (ConfigZombiePlayers.showNameWhenHostile || isCalm()) {
+            if (!hasCustomName()) {
+               this.setCustomName(new TextComponent(this.gameProfile.getName()));
+            }
+         } else {
+            if (hasCustomName()) {
+               this.setCustomName(null);
+            }
+         }
+
       }
 
       if (risingTime < risingTimeMax) {
@@ -1045,7 +1055,6 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    @Override
    @Nullable
    public SpawnGroupData finalizeSpawn(ServerLevelAccessor p_34297_, DifficultyInstance difficulty, MobSpawnType p_34299_, @Nullable SpawnGroupData livingdata, @Nullable CompoundTag p_34301_) {
-   //public IEntityLivingData onInitialSpawn(DifficultyInstance difficulty, @Nullable IEntityLivingData livingdata) {
 
       if (gameProfile == null) {
          GameProfile profile = null;
@@ -1559,6 +1568,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    @Override
    public boolean shouldShowName() {
       return isCalm() || isCalmFlag();
+   }
+
+   @Override
+   public boolean hasCustomName() {
+      return super.hasCustomName();
    }
 
    @Override
