@@ -63,7 +63,7 @@ public class EventHandlerForge {
 		}
 	}
 
-	@SubscribeEvent(priority = EventPriority.LOWEST)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public void onPlayerRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
 		if (!event.getWorld().isClientSide() && event.getHand() == InteractionHand.MAIN_HAND) {
 			if (event.getPlayer().getMainHandItem().getItem() == Items.GOLDEN_HOE) {
@@ -107,18 +107,25 @@ public class EventHandlerForge {
 		}
 	}
 
-	@SubscribeEvent(priority = EventPriority.LOWEST)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public void onPlayerLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-
 		trainZombiePlayer(event.getPlayer(), event.getWorld(), event.getPos(), EnumTrainType.BLOCK_LEFT_CLICK, event.getFace(), null);
 	}
 
-	@SubscribeEvent(priority = EventPriority.LOWEST)
+	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public void onPlayerInteract(PlayerInteractEvent.EntityInteract event) {
 		//trainZombiePlayer(event.getWorld(), event.getPlayer().blockPosition(), EnumTrainType.ENTITY_RIGHT_CLICK);
 	}
 
-
+	public void trainZombiePlayerSetClick(Player player, Level level, BlockPos pos, EnumTrainType trainType) {
+		List<ZombiePlayer> listEnts = level.getEntitiesOfClass(ZombiePlayer.class, new AABB(pos).inflate(10, 5, 10));
+		for (ZombiePlayer ent : listEnts) {
+			if (ent.isCalm() && ent.getWorkInfo().isInTrainingMode() && ent.getOwnerUUID().equals(player.getUUID())) {
+				ent.getWorkInfo().setWorkClickLastObserved(trainType);
+				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " set click to " + trainType), new UUID(0, 0));
+			}
+		}
+	}
 
 	public void trainZombiePlayer(Player player, Level level, BlockPos pos, EnumTrainType trainType, Direction direction, BlockHitResult blockHitResult) {
 		List<ZombiePlayer> listEnts = level.getEntitiesOfClass(ZombiePlayer.class, new AABB(pos).inflate(10, 5, 10));
@@ -131,7 +138,7 @@ public class EventHandlerForge {
 				ent.getWorkInfo().setWorkClickDirectionLastObserved(direction);
 				ent.getWorkInfo().setItemNeededForWork(player.getMainHandItem());
 				ent.getWorkInfo().setBlockHitResult(blockHitResult);
-				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " observed " + state + " using " + player.getMainHandItem()), new UUID(0, 0));
+				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " observed " + state + " using " + player.getMainHandItem() + " click: " + trainType), new UUID(0, 0));
 				//set a basic small work area and update restriction area if no work area set yet
 				if (ent.getWorkInfo().getPosWorkArea() == WorkInfo.CENTER_ZERO) {
 					AABB aabb = new AABB(
