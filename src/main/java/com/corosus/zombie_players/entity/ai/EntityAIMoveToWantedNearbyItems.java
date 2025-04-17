@@ -30,7 +30,7 @@ public class EntityAIMoveToWantedNearbyItems extends Goal
     {
         if (!zombiePlayer.isCalm()) return false;
 
-        if (ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && !zombiePlayer.isFoodNeedUrgent()) {
+        if (/*ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && */!zombiePlayer.isFoodNeedUrgent()) {
             return false;
         }
 

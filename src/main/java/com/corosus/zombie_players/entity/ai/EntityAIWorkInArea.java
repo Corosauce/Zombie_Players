@@ -369,6 +369,10 @@ public class EntityAIWorkInArea extends Goal
                 if (operateOnTargetPosition(blockposGoal)) {
                     posNextWorkTarget = quickFindNeighborWorkBlock(posCurrentWorkTarget);
 
+                    if (posCurrentWorkTarget.equals(posNextWorkTarget)) {
+                        jobCompleteCooldown = entityObj.level.getGameTime() + 5;
+                    }
+
                     posCurrentWorkTarget = BlockPos.ZERO;
                 } else {
                     CULog.dbg("target block no longer valid, aborting");
@@ -579,7 +583,7 @@ public class EntityAIWorkInArea extends Goal
         if (performedAction) {
             entityObj.swing(InteractionHand.MAIN_HAND);
             entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
-            ((ServerLevel)entityObj.level).sendParticles(ParticleTypes.WITCH, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 5, 0.3D, 0D, 0.3D, 1D);
+            //((ServerLevel)entityObj.level).sendParticles(ParticleTypes.WITCH, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 5, 0.3D, 0D, 0.3D, 1D);
         }
 
 
@@ -681,5 +685,13 @@ public class EntityAIWorkInArea extends Goal
             if (pos == posLastBadPath) return true;
         }
         return false;
+    }
+
+    public BlockPos getPosNextWorkTarget() {
+        return posNextWorkTarget;
+    }
+
+    public void setPosNextWorkTarget(BlockPos posNextWorkTarget) {
+        this.posNextWorkTarget = posNextWorkTarget;
     }
 }

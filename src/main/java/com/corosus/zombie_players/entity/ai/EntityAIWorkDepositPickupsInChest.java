@@ -4,11 +4,13 @@ import com.corosus.zombie_players.entity.ZombiePlayer;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.EnumSet;
 
@@ -23,6 +25,7 @@ public class EntityAIWorkDepositPickupsInChest extends Goal
 
     private int lookUpdateTimer = 0;
 
+    @NotNull
     public BlockPos posCachedBestChest = BlockPos.ZERO;
 
     public EntityAIWorkDepositPickupsInChest(ZombiePlayer entityObjIn)
@@ -79,7 +82,12 @@ public class EntityAIWorkDepositPickupsInChest extends Goal
                 entityObj.setDepositingInChest(true);
                 entityObj.openChest(posCachedBestChest);
 
-                entityObj.ejectItems(posCachedBestChest);
+                if (!entityObj.ejectItems(posCachedBestChest)) {
+                    //failed to deposit
+                    posCachedBestChest = BlockPos.ZERO;
+                    ((ServerLevel)entityObj.level).sendParticles(ParticleTypes.WITCH, entityObj.getX(), entityObj.getY() + entityObj.getEyeHeight() + 0.5D, entityObj.getZ(), 1, 0.3D, 0D, 0.3D, 1D);
+
+                }
                 entityObj.swing(InteractionHand.MAIN_HAND);
                 entityObj.lookAt(EntityAnchorArgument.Anchor.EYES, new Vec3(posCachedBestChest.getX() + 0.5, posCachedBestChest.getY() + 0.5, posCachedBestChest.getZ() + 0.5));
 
@@ -158,7 +166,7 @@ public class EntityAIWorkDepositPickupsInChest extends Goal
 
     public boolean verifyOrGetNewChest() {
         if (posCachedBestChest == BlockPos.ZERO) return false;
-        if (!entityObj.isValidChestForWork(posCachedBestChest, false) && !entityObj.isValidChestForFood(posCachedBestChest, false)) {
+        if (!entityObj.isValidChestForWork(posCachedBestChest, false)) {
             posCachedBestChest = entityObj.getClosestChestPosWithSpace();
         }
         return posCachedBestChest != BlockPos.ZERO;

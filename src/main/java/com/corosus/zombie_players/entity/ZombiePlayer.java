@@ -77,6 +77,7 @@ import net.minecraftforge.network.NetworkHooks;
 
 public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, OwnableEntity, ContainerListener {
    private static final EntityDataAccessor<Boolean> IS_CALM_ID = SynchedEntityData.defineId(ZombiePlayer.class, EntityDataSerializers.BOOLEAN);
+   private static final EntityDataAccessor<Boolean> SHOW_NAMETAG = SynchedEntityData.defineId(ZombiePlayer.class, EntityDataSerializers.BOOLEAN);
    private static final Predicate<Difficulty> DOOR_BREAKING_PREDICATE = (p_34284_) -> {
       return p_34284_ == Difficulty.HARD;
    };
@@ -119,6 +120,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    private String fakePlayerUUIDString = "4e6ff94b-e7bd-4e36-b86b-c0431aa69418";
    private UUID fakePlayerUUID = UUIDTypeAdapter.fromString(fakePlayerUUIDString);
+
+   private EntityAIWorkInArea entityAIWorkInArea;
 
    public ZombiePlayer(EntityType<ZombiePlayer> entityEntityType, Level level) {
       super(entityEntityType, level);
@@ -185,7 +188,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
       this.goalSelector.addGoal(taskID++, new EntityAIInteractChest(this, 1.0D, 20));
       this.goalSelector.addGoal(taskID++, new EntityAIWorkKeepItemInHandAndResupply(this));
-      this.goalSelector.addGoal(taskID++, new EntityAIWorkInArea(this));
+      entityAIWorkInArea = new EntityAIWorkInArea(this);
+      this.goalSelector.addGoal(taskID++, entityAIWorkInArea);
       this.goalSelector.addGoal(taskID++, new EntityAIWorkMoveToWantedNearbyItems(this, 1.0D));
       this.goalSelector.addGoal(taskID++, new EntityAIWorkDepositPickupsInChest(this));
       this.goalSelector.addGoal(taskID++, new EntityAIPlayZombiePlayer(this, 1.15D));
@@ -210,6 +214,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    protected void defineSynchedData() {
       super.defineSynchedData();
       this.getEntityData().define(IS_CALM_ID, false);
+      this.getEntityData().define(SHOW_NAMETAG, false);
    }
 
    public boolean canBreakDoors() {
@@ -387,6 +392,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                      this.setHomePosAndDistance(BlockPos.ZERO, -1, true);
                   } else {
                      getWorkInfo().setInAreaSetMode(false);
+                     player.getPersistentData().putInt(Zombie_Players.ZP_SET_WORK_AREA_STAGE, 0);
                      player.sendMessage(new TextComponent("Removing work area"), uuid);
                      getWorkInfo().setPosWorkArea(WorkInfo.CENTER_ZERO);
                   }
@@ -600,12 +606,18 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                }
             }
 
+            if (isCalm() && shouldFollowOwner) {
+               this.getEntityData().set(SHOW_NAMETAG, true);
+            } else {
+               this.getEntityData().set(SHOW_NAMETAG, false);
+            }
+
             if (level.getGameTime() % ConfigZombiePlayersAdvanced.heal1HealthPerXTicks == 0) {
                this.heal(1);
             }
 
             //pickup items we want, slow rate if pickup if well fed so others more hungry grab it first
-            if (isFoodNeedUrgent() || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && level.getGameTime() % 20 == 0)) {
+            if (isFoodNeedUrgent()/* || (!ConfigZombiePlayersAdvanced.onlySeekFoodIfNeeded && level.getGameTime() % 20 == 0)*/) {
                for (ItemEntity entityitem : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
                   if (entityitem.isAlive() && !entityitem.getItem().isEmpty() && !entityitem.hasPickUpDelay() && isItemWeWant(entityitem.getItem())) {
                      //this.updateEquipmentIfNeeded(entityitem);
@@ -621,7 +633,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
             //eat from main hand
             if (level.getGameTime() % 20 == 0) {
-               if (isItemWeWant(getMainHandItem())) {
+               if (isFoodNeedUrgent() && isItemWeWant(getMainHandItem())) {
                   for (int i = 0; i < getMainHandItem().getCount(); i++) {
 
                      //only do effect sounds and visuals once
@@ -678,9 +690,9 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
             boolean scan = (ConfigZombiePlayersAdvanced.canPickupItemsWithMobGriefingOff && !level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) || shouldPickupExtraItems();
 
             if (scan) {
-               for(ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.0D, 0.0D, 1.0D))) {
+               for(ItemEntity itementity : this.level.getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.5D, 0.0D, 1.5D))) {
                   if (!itementity.isRemoved() && !itementity.getItem().isEmpty() && !itementity.hasPickUpDelay()) {
-                     if (this.wantsToPickUp(itementity.getItem()) && this.pickUpItemReturn(itementity)) {
+                     if (this.wantsToPickUp(itementity.getItem()) && (!getWorkInfo().isPerformingWork() || getWorkInfo().getItemNeededForWork().isEmpty() || itemstackMatches(getWorkInfo().getItemNeededForWork(), itementity.getItem())) && this.pickUpItemReturn(itementity)) {
 
                      } else if (shouldPickupExtraItems()) {
                         this.pickUpItemForExtraInventory(itementity);
@@ -1333,11 +1345,11 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    }
 
    public boolean isValidChestForFood(BlockPos pos, boolean sightCheck) {
-      return (isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F))) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
+      return ((isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F)))) && isMeatyChest(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
    }
 
    public boolean isValidChestForWork(BlockPos pos, boolean sightCheck) {
-      return (isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F))) && chestHasRoom(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
+      return ((isWithinRestriction(pos) || getWorkInfo().getPosWorkArea().contains(new Vec3(pos.getX() + 0.5F, pos.getY() + 0.5F, pos.getZ() + 0.5F)))) && chestHasRoom(pos) && (!sightCheck || CoroUtilEntity.canSee(this, new BlockPos(pos.getX(), pos.getY() + 1, pos.getZ())));
    }
 
    public void tickScanForChests() {
@@ -1567,7 +1579,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    @Override
    public boolean shouldShowName() {
-      return isCalm() || isCalmFlag();
+      return shouldShowNameCustom();
    }
 
    @Override
@@ -1775,6 +1787,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   for(int ii = 0; ii < getExtraInventory().getContainerSize(); ++ii) {
                      if (!getExtraInventory().getItem(ii).isEmpty()) {
                         if (canMergeItems(getExtraInventory().getItem(ii), stack)) {
+                           //System.out.println(this.uuid + " can merge " + getExtraInventory().getItem(ii).getItem() + " with " + stack.getItem());
                            return true;
                         }
                      }
@@ -1862,6 +1875,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       } else {
          Direction direction = Direction.UP;
          if (isFullContainer(container, direction)) {
+            //System.out.println(this.uuid + " isFullContainer true");
             return false;
          } else {
             for(int i = 0; i < getExtraInventory().getContainerSize(); ++i) {
@@ -1870,6 +1884,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                   ItemStack itemstack1 = HopperBlockEntity.addItem(getExtraInventory(), container, getExtraInventory().removeItem(i, 1), direction);
                   if (itemstack1.isEmpty()) {
                      container.setChanged();
+                     //System.out.println(this.uuid + " deposited " + itemstack1.getItem());
                      return true;
                   }
 
@@ -1877,6 +1892,7 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                }
             }
 
+            //System.out.println(this.uuid + " found nothing to merge");
             return false;
          }
       }
@@ -2109,6 +2125,10 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       return getEntityData().get(IS_CALM_ID);
    }
 
+   public boolean shouldShowNameCustom() {
+      return getEntityData().get(SHOW_NAMETAG);
+   }
+
    @Override
    public boolean isPreventingPlayerRest(Player p_33036_) {
       return !isCalm();
@@ -2120,5 +2140,13 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
 
    public void setHasEverBeenCalmed(boolean hasEverBeenCalmed) {
       this.hasEverBeenCalmed = hasEverBeenCalmed;
+   }
+
+   public EntityAIWorkInArea getEntityAIWorkInArea() {
+      return entityAIWorkInArea;
+   }
+
+   public void setEntityAIWorkInArea(EntityAIWorkInArea entityAIWorkInArea) {
+      this.entityAIWorkInArea = entityAIWorkInArea;
    }
 }

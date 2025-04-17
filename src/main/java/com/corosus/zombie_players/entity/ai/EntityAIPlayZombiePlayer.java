@@ -32,6 +32,7 @@ public class EntityAIPlayZombiePlayer extends Goal
     public boolean canUse()
     {
         if (!zombiePlayer.isCalm() || zombiePlayer.shouldFollowOwner || !zombiePlayer.shouldWander) return false;
+        if (zombiePlayer.getWorkInfo().isPerformingWork()) return false;
         if (zombiePlayer.getLevel().getGameTime() < lastPlayTime + playTimeCoolDownAmount) return false;
         if (CU.rand().nextInt(200) != 0)
         {

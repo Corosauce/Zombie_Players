@@ -74,6 +74,7 @@ public class EventHandlerForge {
 						if (ent.isCalm() && ent.getWorkInfo().isInAreaSetMode() && ent.getOwnerUUID().equals(event.getPlayer().getUUID())) {
 							ent.getWorkInfo().setWorkAreaPos1(event.getPos());
 							event.getPlayer().sendMessage(new TextComponent("First work area position set, right click second block with golden hoe"), new UUID(0, 0));
+							event.setCanceled(true);
 						}
 					}
 				} else if (Zombie_Players.getWorkAreaStage(event.getPlayer()) == 2) {
@@ -138,6 +139,7 @@ public class EventHandlerForge {
 				ent.getWorkInfo().setWorkClickDirectionLastObserved(direction);
 				ent.getWorkInfo().setItemNeededForWork(player.getMainHandItem());
 				ent.getWorkInfo().setBlockHitResult(blockHitResult);
+				if (ent.getEntityAIWorkInArea() != null) ent.getEntityAIWorkInArea().setPosNextWorkTarget(pos);
 				player.sendMessage(new TextComponent("Zombie Player " + ent.getGameProfile().getName() + " observed " + state + " using " + player.getMainHandItem() + " click: " + trainType), new UUID(0, 0));
 				//set a basic small work area and update restriction area if no work area set yet
 				if (ent.getWorkInfo().getPosWorkArea() == WorkInfo.CENTER_ZERO) {
@@ -159,6 +161,7 @@ public class EventHandlerForge {
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onGameEvent(VanillaGameEvent event) {
+		System.out.println("??? " + event.getVanillaEvent().getName());
 		event.setCanceled(true);
 	}
 

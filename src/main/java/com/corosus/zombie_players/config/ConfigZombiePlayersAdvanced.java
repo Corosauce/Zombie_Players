@@ -22,8 +22,8 @@ public class ConfigZombiePlayersAdvanced implements IConfigCategory {
 
 	public static int chestSearchRange = 20;
 
-	@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
-	public static boolean onlySeekFoodIfNeeded = false;
+	/*@ConfigComment("They already search more relaxed like if they dont need food, but this will fully lock them out unless they need it")
+	public static boolean onlySeekFoodIfNeeded = false;*/
 
 	public static int tickDelayBetweenPlaying = 20*60*60;
 

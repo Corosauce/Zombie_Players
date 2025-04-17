@@ -55,6 +55,8 @@ public class EntityAITemptZombie extends Goal
     public boolean canUse()
     {
         if (!temptedEntity.isCalm()) return false;
+        if (temptedEntity.getWorkInfo().isPerformingWork()) return false;
+        if (temptedEntity.getWorkInfo().isInTrainingMode()) return false;
         if (temptedEntity.getTarget() != null) return false;
         if (this.delayTemptCounter > 0)
         {
