@@ -161,7 +161,7 @@ public class EventHandlerForge {
 
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onGameEvent(VanillaGameEvent event) {
-		System.out.println("??? " + event.getVanillaEvent().getName());
+		//System.out.println("??? " + event.getVanillaEvent().getName());
 		event.setCanceled(true);
 	}
 

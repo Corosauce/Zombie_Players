@@ -238,6 +238,7 @@ public class EntityAIWorkInArea extends Goal
         CULog.dbg("dbgstate: " + state);*/
 
         //TODO: problem, this line fails for cave vines cause theres 2 cave vines blocks, how to fix by matching getBlockInfo without breaking othing stuff?
+        //TODO: need a way to force break block even if plant, see IE hemp plants
         //if our info match is tag based, just do if state.is(tag) ?
         //would help with various tree matches too
         BlockInfo infoDesired = getBlockInfo(entityObj.getWorkInfo().getStateWorkLastObserved());
@@ -252,6 +253,63 @@ public class EntityAIWorkInArea extends Goal
             //need to have special rules only when no special tool being used, otherwise things like trying to harvest with bonemeal in hands will happen
             if (info != null && entityObj.getWorkInfo().getItemNeededForWork().isEmpty()) {
                 foundRuleForBlock = true;
+            }
+
+            //TODO: kind of a quick fix for IE hemp seeds, might not work nicely with rest of features?
+            if (entityObj.alwaysBreakWorkBlock && isWithinRestrictions(pos)) {
+                /*successfullMatchPhase1 = true;
+                foundRuleForBlock = true;*/
+                if (entityObj.exactMatchBlockStates) {
+
+                    //System.out.println("2");
+
+                    if (!entityObj.getWorkInfo().getStateWorkLastObserved().getBlock().equals(state.getBlock())) {
+                        return false;
+                    }
+
+                    /**
+                     * 2
+                     * 2222 + 1
+                     * 2222222
+                     * 2
+                     * 2222 + 1
+                     * 2222222
+                     *
+                     * any code that ran "state.getBlock()" wouldnt output
+                     */
+
+                    /*System.out.println("22 + " + state);
+                    System.out.println("222 + " + state.getBlock());
+                    System.out.println("2222 + " + state.getValues().size());*/
+
+                    for(Map.Entry<Property<?>, Comparable<?>> entry : state.getValues().entrySet()) {
+                        /*System.out.println("2222222");
+                        System.out.println("4");
+                        System.out.println("test " + state.getValue(entry.getKey()) + " vs " + entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey()));*/
+                        boolean foundMatch = false;
+                        for(Map.Entry<Property<?>, Comparable<?>> entry2 : entityObj.getWorkInfo().getStateWorkLastObserved().getValues().entrySet()) {
+                            //System.out.println("test2 " + state.getValue(entry.getKey()) + " vs " + entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry2.getKey()));
+                            if (state.getValue(entry.getKey()) == entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry2.getKey())) {
+                                //System.out.println("found match for " + state.getValue(entry.getKey()) + " vs " + entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry2.getKey()));
+                                //System.out.println("found match");
+                                foundMatch = true;
+                                break;
+                            }
+                        }
+                        if (!foundMatch) {
+                            //System.out.println("no found match");
+                            return false;
+                        }
+                        /*if (state.getValue(entry.getKey()) != entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey())) {
+                            System.out.println("entry.getKey() match fail for " + state.getValue(entry.getKey()) + " vs " + entityObj.getWorkInfo().getStateWorkLastObserved().getValue(entry.getKey()));
+                            System.out.println("5");
+                            return false;
+                        }*/
+                    }
+                } else {
+                    //System.out.println("3");
+                }
+                return true;
             }
 
             if (entityObj.getWorkInfo().isExactMatchMode()) {
@@ -505,7 +563,7 @@ public class EntityAIWorkInArea extends Goal
 
         boolean performedAction = false;
         BlockState state = entityObj.level.getBlockState(pos);
-        if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK) {
+        if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_RIGHT_CLICK && !entityObj.alwaysBreakWorkBlock) {
             FakePlayer fakePlayer = entityObj.getFakePlayer();
 
             if (!entityObj.getMainHandItem().isEmpty()) {
@@ -536,7 +594,7 @@ public class EntityAIWorkInArea extends Goal
             //entityObj.level.getBlockState(pos).use(entityObj.level, fakePlayer, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), entityObj.getWorkInfo().getWorkClickDirectionLastObserved(), pos, true));
         } else if (entityObj.getWorkInfo().getWorkClickLastObserved() == EnumTrainType.BLOCK_LEFT_CLICK) {
             BlockInfo info = getBlockInfo(state);
-            if (info != null) {
+            if (info != null && !entityObj.alwaysBreakWorkBlock) {
                 if (info.blockBreakBehaviorType == EnumBlockBreakBehaviorType.BREAK_NORMAL) {
                     if (entityObj.level.getBlockState(pos).getDestroySpeed(entityObj.level, pos) >= 0) {
                         entityObj.level.destroyBlock(pos, true);

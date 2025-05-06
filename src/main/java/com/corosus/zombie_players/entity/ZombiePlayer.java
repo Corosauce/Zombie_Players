@@ -92,6 +92,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
    public boolean canEatFromChests = false;
    public boolean canPickupExtraItems = false;
    public boolean shouldFollowOwner = false;
+   public boolean alwaysBreakWorkBlock = false;
+   public boolean exactMatchBlockStates = false;
    public boolean shouldWander = true;
    private boolean isPlaying;
    private int calmTime = 0;
@@ -422,6 +424,20 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
                      }
 
                   }
+               }
+            } else if (itemstack.getItem() == Items.PISTON) {
+               alwaysBreakWorkBlock = !alwaysBreakWorkBlock;
+               if (alwaysBreakWorkBlock) {
+                  player.sendMessage(new TextComponent("Always break work block active"), uuid);
+               } else {
+                  player.sendMessage(new TextComponent("Always break work block inactive"), uuid);
+               }
+            } else if (itemstack.getItem() == Items.SPYGLASS) {
+               exactMatchBlockStates = !exactMatchBlockStates;
+               if (exactMatchBlockStates) {
+                  player.sendMessage(new TextComponent("Exact match block states active"), uuid);
+               } else {
+                  player.sendMessage(new TextComponent("Exact match block states inactive"), uuid);
                }
             } else if (isCalm() && itemstack.isEmpty()) {
                if (player.isCrouching()) {
@@ -889,6 +905,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       compound.putBoolean("quiet", quiet);
       compound.putBoolean("canEatFromChests", canEatFromChests);
       compound.putBoolean("shouldFollowOwner", shouldFollowOwner);
+      compound.putBoolean("alwaysBreakWorkBlock", alwaysBreakWorkBlock);
+      compound.putBoolean("exactMatchBlockStates", exactMatchBlockStates);
       compound.putBoolean("shouldWander", shouldWander);
       compound.putInt("calmTime", calmTime);
       compound.putBoolean("hasEverBeenCalmed", hasEverBeenCalmed);
@@ -987,6 +1005,8 @@ public class ZombiePlayer extends Zombie implements IEntityAdditionalSpawnData, 
       quiet = compound.getBoolean("quiet");
       canEatFromChests = compound.getBoolean("canEatFromChests");
       shouldFollowOwner = compound.getBoolean("shouldFollowOwner");
+      alwaysBreakWorkBlock = compound.getBoolean("alwaysBreakWorkBlock");
+      exactMatchBlockStates = compound.getBoolean("exactMatchBlockStates");
       //protecting existing world data to not set to false
       if (compound.contains("shouldWander")) shouldWander = compound.getBoolean("shouldWander");
       calmTime = compound.getInt("calmTime");
